@@ -45,46 +45,60 @@ def main():
     num_messages = max(1, num_nodes // 3)
     print(f"\nGenerating {num_messages} random messages...")
     
-    # Create messages that start one after another (not by time, but by completion)
-    start_times = []
-    for i in range(num_messages):
-        start_times.append(0 if i == 0 else -1)  # First starts immediately, others wait
-    
-    auto_messages = sim.generate_random_message_pairs(num_messages, start_times=start_times)
+    auto_messages = sim.generate_random_message_pairs(num_messages)
     
     # Setup simulation variables
     step_count = 0
     max_steps = 50
     running = True
+    waiting_for_input = False
     
     def handle_key(key):
         """Handle keyboard input from graph window"""
-        nonlocal running, step_count
+        nonlocal running, step_count, waiting_for_input
         
-        print(f"Key pressed: {key}")
+        print(f"\n🔧 DEBUG: Key pressed: '{key}' (waiting_for_input: {waiting_for_input})")
+        
+        # IMPORTANT: Prevent double execution
+        if waiting_for_input:
+            print("🔧 DEBUG: Already processing input, ignoring...")
+            return
         
         if key == ' ':  # Space bar
             if step_count < max_steps:
-                print(f"\n--- Step {step_count + 1} ---")
+                waiting_for_input = True  # Block further inputs
+                step_count += 1
+                
+                print(f"\n--- Step {step_count} ---")
+                print("🔧 DEBUG: About to call step_simulation()")
                 
                 # Execute simulation step
                 has_more = sim.step_simulation()
                 
-                # Update visualization
-                try:
-                    sim.visualize_current_state(key_callback=handle_key)
-                except Exception as e:
-                    print(f"Visualization update failed: {e}")
+                print("🔧 DEBUG: step_simulation() returned:", has_more)
                 
-                step_count += 1
+                # Update visualization - NO KEY CALLBACK to prevent double execution
+                try:
+                    print("🔧 DEBUG: About to update visualization")
+                    sim.visualize_current_state(key_callback=None)  # REMOVED CALLBACK!
+                    print("🔧 DEBUG: Visualization updated successfully")
+                except Exception as e:
+                    print(f"🔧 DEBUG: Visualization update failed: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
                 # Check if simulation is complete
                 if not has_more and len(sim.all_messages) == len(sim.completed_messages):
                     print("All messages completed!")
                     print("\n=== Final Results ===")
                     sim.print_simulation_results()
-            else:
-                print("Simulation reached maximum steps!")
+                    running = False
+                elif step_count >= max_steps:
+                    print("Simulation reached maximum steps!")
+                    running = False
+                
+                waiting_for_input = False  # Ready for next input
+                print("🔧 DEBUG: Ready for next SPACE press")
                 
         elif key == 'q':  # Quit
             print("Simulation stopped by user.")
@@ -100,31 +114,60 @@ def main():
     
     # Show initial visualization
     try:
+        print("🔧 DEBUG: Setting up matplotlib")
         plt.figure(figsize=(16, 10))
         plt.ion()  # Interactive mode
+        
+        print("🔧 DEBUG: Showing initial visualization")
+        # Show initial state with key callback
         sim.visualize_current_state(key_callback=handle_key)
         print("\nGraph window opened! Click on it and press SPACE to advance simulation.")
         
-        # Keep the program running and responsive
+        print("🔧 DEBUG: Entering main loop")
+        # Keep the program running and responsive - FIXED VERSION
         while running:
-            plt.pause(0.1)  # Allow matplotlib to process events
+            try:
+                plt.pause(1.0)  # Even slower pause - 1 second intervals
+                
+                # Check if window was closed
+                if not plt.get_fignums():  # No figures open
+                    print("Graph window closed")
+                    break
+                    
+            except KeyboardInterrupt:
+                print("\nInterrupted by user")
+                break
+            except Exception as e:
+                print(f"🔧 DEBUG: Error in main loop: {e}")
+                break
+                
+        print("🔧 DEBUG: Exited main loop")
             
     except Exception as e:
-        print(f"Visualization error: {e}")
-        print("Running in text-only mode...")
+        print(f"Visualization setup error: {e}")
+        import traceback
+        traceback.print_exc()
+        print("\nRunning in text-only mode...")
         
-        # Fallback to terminal input
-        while step_count < max_steps:
-            user_input = input(f"\nStep {step_count + 1} - Press SPACE (or Enter) to advance, 'q' to quit: ").strip().lower()
-            
-            if user_input == 'q':
-                break
-            
-            has_more = sim.step_simulation()
-            step_count += 1
-            
-            if not has_more and len(sim.all_messages) == len(sim.completed_messages):
-                print("All messages completed!")
+        # Fallback to terminal input - IMPROVED VERSION
+        print("🔧 DEBUG: Entering text-only mode")
+        while step_count < max_steps and running:
+            try:
+                user_input = input(f"\nStep {step_count + 1} - Press ENTER to advance, 'q' to quit: ").strip().lower()
+                
+                if user_input == 'q':
+                    break
+                
+                step_count += 1
+                print(f"\n--- Step {step_count} ---")
+                
+                has_more = sim.step_simulation()
+                
+                if not has_more and len(sim.all_messages) == len(sim.completed_messages):
+                    print("All messages completed!")
+                    break
+                    
+            except KeyboardInterrupt:
                 break
         
         print("\n=== Final Results ===")
@@ -139,4 +182,6 @@ if __name__ == "__main__":
         print("\n\nSimulation interrupted by user.")
     except Exception as e:
         print(f"\nError: {e}")
+        import traceback
+        traceback.print_exc()
         print("Please check your input and try again.")

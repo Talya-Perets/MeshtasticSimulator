@@ -178,7 +178,7 @@ class Network:
     
     def visualize_interactive(self, title="Meshtastic Network", active_messages=None, completed_messages=None, 
                             message_selection_callback=None, key_callback=None, clear_previous=True):
-        """Interactive visualization with keyboard support"""
+        """Interactive visualization with keyboard support - FIXED VERSION"""
         
         try:
             if clear_previous:
@@ -200,7 +200,7 @@ class Network:
             edge_colors = ['gray'] * self.graph.number_of_edges()
             edge_widths = [1] * self.graph.number_of_edges()
             
-            # Color nodes and edges based ONLY on active messages (not completed)
+            # Color nodes and edges based on active messages
             if active_messages:
                 # Group messages by message_id
                 message_groups = {}
@@ -220,27 +220,26 @@ class Network:
                     if sample_msg.destination < len(node_colors):
                         node_colors[sample_msg.destination] = 'red'
                     
-                    # Current receivers (nodes that just got the message) - ORANGE
-                    current_receivers = set(msg.current_node for msg in message_copies)
+                    # Get current nodes that have the message
+                    current_nodes = set(msg.current_node for msg in message_copies)
                     
-                    # Previous nodes in path (already processed) - YELLOW
-                    all_previous_nodes = set()
+                    # Get all nodes that have been visited (from paths)
+                    all_visited_nodes = set()
                     for msg in message_copies:
-                        # All nodes except the current one are "previous"
-                        for node_id in msg.path[:-1]:  # All but last (current)
-                            all_previous_nodes.add(node_id)
+                        all_visited_nodes.update(msg.path)
                     
-                    # Color previous nodes yellow
-                    for node_id in all_previous_nodes:
+                    # Previous nodes (visited but not current) - YELLOW
+                    previous_nodes = all_visited_nodes - current_nodes
+                    for node_id in previous_nodes:
                         if node_id < len(node_colors) and node_colors[node_id] not in ['green', 'red']:
                             node_colors[node_id] = 'yellow'
                     
-                    # Color current receivers orange (they will send next)
-                    for node_id in current_receivers:
+                    # Current nodes (have message now) - ORANGE
+                    for node_id in current_nodes:
                         if node_id < len(node_colors) and node_colors[node_id] not in ['green', 'red']:
                             node_colors[node_id] = 'orange'
                     
-                    # Draw ALL paths in blue
+                    # Color edges in the paths (already traveled) - LIGHT BLUE
                     edges_list = list(self.graph.edges())
                     for msg in message_copies:
                         for i in range(len(msg.path) - 1):
@@ -249,9 +248,31 @@ class Network:
                             
                             for idx, (u, v) in enumerate(edges_list):
                                 if (u == current and v == next_node) or (u == next_node and v == current):
-                                    edge_colors[idx] = 'blue'
-                                    edge_widths[idx] = 3
+                                    edge_colors[idx] = 'lightblue'  # Light blue for history
+                                    edge_widths[idx] = 2
                                     break
+                    
+                    # Color edges from current senders to their unvisited neighbors - BRIGHT BLUE (ACTIVE NOW)
+                    # Find next receivers (neighbors of current nodes that haven't seen the message)
+                    next_receivers = set()
+                    for sender_id in current_nodes:
+                        sender_node = self.nodes[sender_id]
+                        for neighbor_id in sender_node.neighbors:
+                            neighbor_node = self.nodes[neighbor_id]
+                            if not neighbor_node.has_seen_message(message_id):
+                                next_receivers.add(neighbor_id)
+                    
+                    # Color edges from current senders to next receivers - BRIGHT BLUE (SENDING NOW)
+                    for sender_id in current_nodes:
+                        sender_node = self.nodes[sender_id]
+                        for neighbor_id in sender_node.neighbors:
+                            if neighbor_id in next_receivers:
+                                # Find this edge and color it
+                                for idx, (u, v) in enumerate(edges_list):
+                                    if (u == sender_id and v == neighbor_id) or (u == neighbor_id and v == sender_id):
+                                        edge_colors[idx] = 'blue'  # Bright blue for current transmission
+                                        edge_widths[idx] = 4
+                                        break
             
             # Draw network
             nx.draw_networkx_nodes(self.graph, pos, node_color=node_colors, 
@@ -277,6 +298,39 @@ class Network:
             ax_messages.text(0.05, y_pos, "MESSAGES", fontsize=14, fontweight='bold')
             y_pos -= 0.08
             
+            # Show current message details if there are active messages
+            if active_messages:
+                current_msg = active_messages[0]
+                ax_messages.text(0.05, y_pos, f"Current Message:", fontsize=12, fontweight='bold')
+                y_pos -= 0.05
+                ax_messages.text(0.1, y_pos, f"ID: {current_msg.message_id}", fontsize=9)
+                y_pos -= 0.04
+                ax_messages.text(0.1, y_pos, f"From: {current_msg.source} To: {current_msg.destination}", fontsize=9)
+                y_pos -= 0.04
+                ax_messages.text(0.1, y_pos, f"Hop: {current_msg.current_hop_count}/{current_msg.hop_limit}", fontsize=9)
+                y_pos -= 0.04
+                
+                # Show current senders
+                current_senders = sorted(set(msg.current_node for msg in active_messages))
+                ax_messages.text(0.1, y_pos, f"Sending from: {current_senders}", fontsize=8, color='orange')
+                y_pos -= 0.04
+                
+                # Show next receivers
+                next_receivers = set()
+                for sender_id in current_senders:
+                    sender_node = self.nodes[sender_id]
+                    for neighbor_id in sender_node.neighbors:
+                        neighbor_node = self.nodes[neighbor_id]
+                        if not neighbor_node.has_seen_message(current_msg.message_id):
+                            next_receivers.add(neighbor_id)
+                
+                if next_receivers:
+                    ax_messages.text(0.1, y_pos, f"Will reach: {sorted(list(next_receivers))}", fontsize=8, color='blue')
+                    y_pos -= 0.06
+                else:
+                    ax_messages.text(0.1, y_pos, "No more neighbors to reach!", fontsize=8, color='red')
+                    y_pos -= 0.06
+            
             # Show ALL messages with status colors
             if hasattr(self, 'all_simulator_messages'):
                 all_messages_to_show = self.all_simulator_messages
@@ -287,7 +341,7 @@ class Network:
                 # Sort by creation order
                 messages_sorted = sorted(all_messages_to_show, key=lambda m: m.message_id)
                 
-                for msg in messages_sorted[-10:]:  # Show last 10 messages
+                for msg in messages_sorted[-8:]:  # Show last 8 messages
                     # Determine status and color
                     if msg.reached_destination:
                         color = 'green'
@@ -324,13 +378,15 @@ class Network:
             ax_messages.text(0.05, 0.07, "Q = Quit", fontsize=9, color='red')
             ax_messages.text(0.05, 0.03, "Click graph to focus", fontsize=8, style='italic')
             
-            # Add legend for colors
+            # Add legend for colors - UPDATED WITH HISTORY
             legend_elements = [
                 plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='green', markersize=8, label='Source'),
                 plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=8, label='Destination'),
-                plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='yellow', markersize=8, label='Received'),
-                plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='orange', markersize=8, label='Sending'),
-                plt.Line2D([0], [0], color='blue', linewidth=3, label='Message Path')
+                plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='orange', markersize=8, label='Visited (history)'),
+                plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='yellow', markersize=8, label='Current path'),
+                plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='darkorange', markersize=8, label='Active now'),
+                plt.Line2D([0], [0], color='cyan', linewidth=2, label='Historical paths'),
+                plt.Line2D([0], [0], color='blue', linewidth=4, label='Current transmission')
             ]
             
             # Add legend to network plot
@@ -350,14 +406,20 @@ class Network:
             fig.canvas.mpl_connect('key_press_event', on_key)
             fig.canvas.mpl_connect('button_press_event', on_click)
             
-            # Make sure window can receive focus
-            fig.canvas.set_window_title('Meshtastic Simulator - Press SPACE to advance')
+            # Make sure window can receive focus (with error handling)
+            try:
+                if hasattr(fig.canvas, 'set_window_title'):
+                    fig.canvas.set_window_title('Meshtastic Simulator - Press SPACE to advance')
+            except (AttributeError, Exception):
+                pass  # Some backends don't support this, ignore silently
             
             plt.tight_layout()
             
             # Force update and focus
             plt.draw()
             plt.pause(0.01)
+            
+            return True  # Visualization succeeded
             
         except Exception as e:
             print(f"Visualization error: {e}")

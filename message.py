@@ -21,12 +21,14 @@ class Message:
         self.failed = False
         self.failure_reason = ""
         self.active = False  # Whether message is currently active in simulation
+        self.received_from = None  # NEW: Track who sent this message to current node
     
-    def add_to_path(self, node_id):
-        """Add node to message path"""
+    def add_to_path(self, node_id, sender_id=None):
+        """Add node to message path and track sender"""
         self.path.append(node_id)
         self.current_node = node_id
         self.current_hop_count += 1
+        self.received_from = sender_id  # Track who sent this message
     
     def can_hop(self):
         """Check if message can still hop"""
@@ -70,6 +72,30 @@ class Message:
             return "WAITING"
         else:
             return "IN_TRANSIT"
+    
+    def get_full_path_info(self):
+        """Get detailed path information including senders"""
+        if len(self.path) <= 1:
+            return f"At source: {self.source}"
+        
+        path_info = f"{self.source}"
+        for i in range(1, len(self.path)):
+            path_info += f" -> {self.path[i]}"
+        
+        if self.received_from is not None and self.current_node != self.source:
+            path_info += f" (from {self.received_from})"
+        
+        return path_info
+    
+    def copy(self):
+        """Create a copy of this message for forwarding."""
+        new_msg = Message(self.source, self.destination, self.content, self.hop_limit, self.start_time)
+        new_msg.message_id = self.message_id  # Keep same ID
+        new_msg.current_hop_count = self.current_hop_count
+        new_msg.path = self.path.copy()
+        new_msg.active = self.active
+        new_msg.received_from = self.received_from
+        return new_msg
     
     def __str__(self):
         return f"Message {self.message_id}: {self.source} -> {self.destination} (Hops: {self.current_hop_count}/{self.hop_limit})"
