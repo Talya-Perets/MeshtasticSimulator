@@ -253,6 +253,7 @@ class Simulator:
         self.update_display()
         print("Simulation reset to frame 0")
 
+
     def draw_network(self):
         """Draw the current state of the network"""
         # Clear axes completely 
@@ -281,10 +282,19 @@ class Simulator:
             circle = plt.Circle(pos, 0.15, color=color, zorder=3)
             self.ax.add_patch(circle)
             
+            # NEW: Add pink border if collision AND (source OR target)
+            if (node.status_flags[node.STATUS_COLLISION] and 
+                (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
+                # Draw pink border around the node
+                border_circle = plt.Circle(pos, 0.15, fill=False, 
+                                        edgecolor='pink', linewidth=4, zorder=4)
+                self.ax.add_patch(border_circle)
+                print(f"   🌸 Added pink collision border to node {node_id} ({color})")
+            
             # Add node label
             self.ax.text(pos[0], pos[1], str(node_id), 
                         ha='center', va='center', fontsize=10, 
-                        fontweight='bold', zorder=4)
+                        fontweight='bold', zorder=5)  # Increased zorder to be above border
         
         # Draw active message transmissions - LAST, ON TOP
         self._draw_active_transmissions()
@@ -297,6 +307,8 @@ class Simulator:
         margin = 0.5
         self.ax.set_xlim(min(x_coords) - margin, max(x_coords) + margin)
         self.ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
+
+
         
     def _draw_active_transmissions(self):
         """Draw lines for ALL neighbors that senders are transmitting to - with different colors per message"""
