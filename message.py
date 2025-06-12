@@ -10,20 +10,21 @@ class Message:
         self.id = message_id
         self.source = source_node  # Source node ID
         self.target = target_node  # Target node ID
-        
-        # Random hop limit between 3-6
-        self.hop_limit = random.randint(3, 6)
+        self.hop_limit = 4
         
         # Random start frame (when the message begins transmission)
-        self.start_frame = random.randint(0, total_frames - 1)
+        # Start between frame 1 and total_frames - 10 (give time to complete)
+        latest_start = max(1, total_frames - 15)
+        self.start_frame = random.randint(1, latest_start)
         
         # Current hop count (starts at hop_limit)
         self.current_hops = self.hop_limit
         
         # Message status
         self.is_active = False  # Not started yet
-        self.is_completed = False  # Reached destination or expired
-        self.completion_reason = None  # "reached_target" or "hop_limit_exceeded"
+        self.is_completed = False  # Hop limit reached or manually stopped
+        self.target_received = False  # NEW: Did target receive the message?
+        self.completion_reason = None  # "hop_limit_exceeded" only
         
         # Track multiple message paths (flooding creates multiple routes)
         self.paths = []  # List of paths - each path is a list of node IDs
@@ -40,11 +41,36 @@ class Message:
         """Decrease hop count by 1"""
         self.current_hops -= 1
         
+    def target_reached(self):
+        """Mark that target has received the message - but continue running"""
+        self.target_received = True
+        print(f"      🎯 Message {self.id} TARGET REACHED - but continues running until hop limit")
+        
     def complete_message(self, reason):
-        """Mark message as completed with reason"""
-        self.is_completed = True
-        self.is_active = False
-        self.completion_reason = reason
+        """Mark message as completed - only when hop limit exceeded"""
+        if reason == "hop_limit_exceeded":
+            self.is_completed = True
+            self.is_active = False
+            self.completion_reason = reason
+            print(f"      🛑 Message {self.id} COMPLETED: {reason}")
+        else:
+            # Don't complete for other reasons - just mark target received
+            self.target_reached()
+            
+    def get_status(self):
+        """Get current status of the message"""
+        if self.is_completed:
+            if self.target_received:
+                return "SUCCESS"  # Target received AND hop limit exceeded
+            else:
+                return "EXPIRED"  # Hop limit exceeded but target never received
+        elif self.is_active:
+            if self.target_received:
+                return "SUCCESS_RUNNING"  # Target received but still running
+            else:
+                return "ACTIVE"  # Still running, target not reached yet
+        else:
+            return "WAITING"  # Not started yet
         
     def create_new_copy(self, current_node, next_node, current_path):
         """Create a new copy of the message for flooding to neighbor"""
@@ -87,5 +113,6 @@ class Message:
             
     def __str__(self):
         """String representation of the message"""
-        status = "Completed" if self.is_completed else ("Active" if self.is_active else "Waiting")
-        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | Status: {status}"
+        status = self.get_status()
+        target_marker = " 🎯" if self.target_received else ""
+        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | Status: {status}{target_marker}"

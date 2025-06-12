@@ -39,6 +39,11 @@ class Node:
         
         # Neighbors (connected nodes)
         self.neighbors = set()
+        self.routing_table = {}
+    
+        # Track which destinations we can reach and via which neighbor
+        self.learned_routes = {}  # {destination: [list_of_next_hops_with_distances]}
+
         
     def reset_frame_status(self):
         """Reset status flags that change each frame"""
@@ -66,7 +71,6 @@ class Node:
     def set_collision(self):
         """Mark node as having collision this frame"""
         self.status_flags[self.STATUS_COLLISION] = True
-        print(f"      💥 Node {self.id} marked as COLLISION (pink)")
         
     def set_sending(self):
         """Mark node as sending this frame"""
@@ -77,17 +81,13 @@ class Node:
         # Don't override source/target status
         if not self.status_flags[self.STATUS_SOURCE] and not self.status_flags[self.STATUS_TARGET]:
             self.status_flags[self.STATUS_RECEIVING] = True
-            print(f"      🟠 Node {self.id} marked as RECEIVING (orange)")
-        else:
-            print(f"      📝 Node {self.id} received message but stays {'green' if self.status_flags[self.STATUS_SOURCE] else 'red'} (priority color)")
-
+       
     def receive_message_copy(self, message, sender_id, sender_path):
         """Receive a specific copy of a message with its path"""
         
         # SMART FLOODING: Check if we already have this message
         if hasattr(self, 'received_message_ids'):
             if message.id in self.received_message_ids:
-                print(f"      🚫 Node {self.id} REJECTS msg {message.id} from {sender_id} - already seen")
                 return False  # Reject the message
         else:
             self.received_message_ids = set()
@@ -97,7 +97,6 @@ class Node:
         
         if hasattr(self, 'seen_message_copies'):
             if message_key in self.seen_message_copies:
-                print(f"      🚫 Node {self.id} REJECTS duplicate from {sender_id} - msg {message.id}")
                 return False
         else:
             self.seen_message_copies = set()
@@ -108,7 +107,6 @@ class Node:
         
         # Mark that we now have this message (for future rejections)
         self.received_message_ids.add(message.id)
-        print(f"      ✅ Node {self.id} ACCEPTS msg {message.id} from {sender_id}")
         
         return True
 
@@ -118,23 +116,19 @@ class Node:
         
         processed_messages = []
         for message, sender_id, sender_path in self.received_messages:
-            print(f"      Node {self.id} processing msg {message.id} from node {sender_id}")
             
             # Create new path for this copy
             new_path = message.create_new_copy(sender_id, self.id, sender_path)
-            print(f"      New path: {' → '.join(map(str, new_path))}")
             
             # Calculate local hop limit (don't modify the original message)
             local_hop_limit = message.hop_limit - (len(new_path) - 1)
-            print(f"      Local hop calculation: original_limit({message.hop_limit}) - path_length({len(new_path) - 1}) = {local_hop_limit}")
             
             # Check if this is the target
             if message.target == self.id:
                 # MESSAGE REACHED TARGET - COMPLETE IT
                 if not message.is_completed:
                     message.complete_message("reached_target")
-                    print(f"      ✅ Message {message.id} REACHED TARGET at node {self.id}!")
-                    print(f"      🛑 Message {message.id} is now COMPLETED - will stop propagating")
+                   
                 else:
                     print(f"      ℹ️  Message {message.id} already completed, arrived at target {self.id}")
                 processed_messages.append((message, new_path))
@@ -143,8 +137,7 @@ class Node:
                 # HOP LIMIT EXCEEDED - COMPLETE IT
                 if not message.is_completed:
                     message.complete_message("hop_limit_exceeded")
-                    print(f"      ❌ Message {message.id} HOP LIMIT EXCEEDED at node {self.id}")
-                    print(f"      🛑 Message {message.id} is now COMPLETED - will stop propagating")
+                    
                 processed_messages.append((message, new_path))
                 
             else:
