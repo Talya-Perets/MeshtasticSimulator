@@ -129,23 +129,26 @@ class Node:
             
             # Check if this is the target
             if message.target == self.id:
-                # MESSAGE REACHED TARGET - COMPLETE IT IMMEDIATELY
-                if not message.is_completed:
-                    message.complete_message("reached_target")
-                    print(f"      🎯 Message {message.id} reached target {self.id} - COMPLETING")
+                # TARGET REACHED - mark but DON'T add to pending (target doesn't forward)
+                if not message.target_received:
+                    message.target_reached()  # This just marks target_received = True
+                    print(f"      🎯 Message {message.id} reached target {self.id} - TARGET DOES NOT FORWARD")
                 else:
-                    print(f"      ℹ️  Message {message.id} already completed, arrived at target {self.id}")
-                processed_messages.append((message, new_path))
+                    print(f"      ℹ️  Message {message.id} already reached target, arrived again at {self.id}")
                 
-            elif local_hop_limit <= 0:
+                # Target doesn't forward the message, just receives it
+                processed_messages.append((message, new_path))
+                continue
+            
+            # Check hop limit and decide what to do
+            if local_hop_limit <= 0:
                 # HOP LIMIT EXCEEDED - COMPLETE IT
                 if not message.is_completed:
                     message.complete_message("hop_limit_exceeded")
                     print(f"      ⚠️  Message {message.id} hop limit exceeded at node {self.id} (used {hops_used}/{message.hop_limit})")
                 processed_messages.append((message, new_path))
-                
             else:
-                # Message continues - add to pending for next frame
+                # Message continues - add to pending for next frame (only if not target)
                 self.pending_messages.append((message, new_path, local_hop_limit))
                 print(f"      📤 Message {message.id} added to pending (local hops left: {local_hop_limit})")
                 processed_messages.append((message, new_path))

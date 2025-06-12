@@ -299,164 +299,194 @@ class Simulator:
         self.ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
         
     def _draw_active_transmissions(self):
-        """Draw lines for ALL neighbors that senders are transmitting to"""
+        """Draw lines for ALL neighbors that senders are transmitting to - with different colors per message"""
         transmission_count = 0
-        sending_nodes = []
+        
+        # Define colors for different messages (cycle through if more messages than colors)
+        message_colors = ['orange', 'purple', 'brown', 'blue', 'cyan', 'green', 'magenta', 'red']
+        
+        # We need to track what messages each SENDING node is transmitting
+        # Since pending_messages is cleared, we need to get this info from the transmission queue
         
         # Draw lines from all SENDING nodes to ALL their neighbors
         for node_id, node in self.network.nodes.items():
             if node.status_flags[node.STATUS_SENDING] == True:
-                sending_nodes.append(node_id)
                 sender_pos = self.network.node_positions[node_id]
                 
-                # Draw lines to ALL neighbors (show all attempted transmissions)
+                # Get messages this node is sending from the stored transmission info
+                messages_from_node = {}
+                if hasattr(self, '_current_transmissions'):
+                    for sender_id, receiver_id, message, sender_path, hop_limit in self._current_transmissions:
+                        if sender_id == node_id:
+                            if message.id not in messages_from_node:
+                                messages_from_node[message.id] = message
+                
+                # If no stored transmissions, use all active messages (fallback)
+                if not messages_from_node:
+                    for message in self.messages.values():
+                        if message.is_active and not message.is_completed:
+                            messages_from_node[message.id] = message
+                
+                # Draw lines to ALL neighbors for each message with its color
                 for neighbor_id in node.neighbors:
                     neighbor_pos = self.network.node_positions[neighbor_id]
                     
-                    # Draw transmission line in ORANGE
-                    self.ax.plot([sender_pos[0], neighbor_pos[0]], 
-                            [sender_pos[1], neighbor_pos[1]], 
-                            'orange', linewidth=3, alpha=0.8, zorder=2)
-                    
-                    
-                    # Add arrow to show direction
-                    dx = neighbor_pos[0] - sender_pos[0]
-                    dy = neighbor_pos[1] - sender_pos[1]
-                    length = math.sqrt(dx*dx + dy*dy)
-                    if length > 0:
-                        dx_norm = dx / length * 0.3
-                        dy_norm = dy / length * 0.3
+                    # Draw a line for each message this node is sending
+                    for message_id, message in messages_from_node.items():
+                        # Get color for this message (cycle through colors)
+                        color = message_colors[message_id % len(message_colors)]
                         
-                        arrow_x = neighbor_pos[0] - dx_norm
-                        arrow_y = neighbor_pos[1] - dy_norm
+                        # Offset lines slightly so multiple messages are visible
+                        offset = (message_id - len(messages_from_node)/2) * 0.02
                         
-                        self.ax.annotate('', xy=neighbor_pos, xytext=(arrow_x, arrow_y),
-                                    arrowprops=dict(arrowstyle='->', color='orange', 
-                                                    lw=2, alpha=0.8), zorder=2)
-                    transmission_count += 1
+                        # Calculate offset perpendicular to the line
+                        dx = neighbor_pos[0] - sender_pos[0]
+                        dy = neighbor_pos[1] - sender_pos[1]
+                        length = math.sqrt(dx*dx + dy*dy)
+                        
+                        if length > 0:
+                            # Perpendicular offset
+                            perp_x = -dy / length * offset
+                            perp_y = dx / length * offset
+                            
+                            start_x = sender_pos[0] + perp_x
+                            start_y = sender_pos[1] + perp_y
+                            end_x = neighbor_pos[0] + perp_x
+                            end_y = neighbor_pos[1] + perp_y
+                            
+                            # Draw transmission line with message-specific color and THICKER line
+                            self.ax.plot([start_x, end_x], [start_y, end_y], 
+                                    color=color, linewidth=2.5, alpha=0.9, zorder=2)
+                            
+                            # Add BIGGER and THICKER arrow to show direction
+                            dx_norm = dx / length * 0.25  # Bigger arrow
+                            dy_norm = dy / length * 0.25
+                            
+                            arrow_x = end_x - dx_norm
+                            arrow_y = end_y - dy_norm
+                            
+                            self.ax.annotate('', xy=(end_x, end_y), xytext=(arrow_x, arrow_y),
+                                        arrowprops=dict(arrowstyle='->', color=color, 
+                                                        lw=3, alpha=0.9, shrinkA=0, shrinkB=0), zorder=2)
+                            
+                            transmission_count += 1
         
+        # Add legend if there are transmissions
+        if transmission_count > 0:
+            # Get unique messages being transmitted
+            active_messages = set()
+            if hasattr(self, '_current_transmissions'):
+                for sender_id, receiver_id, message, sender_path, hop_limit in self._current_transmissions:
+                    active_messages.add(message.id)
+            
+            # Create legend entries with message IDs
+            legend_elements = []
+            for msg_id in sorted(active_messages):
+                color = message_colors[msg_id % len(message_colors)]
+                line = plt.Line2D([0], [0], color=color, linewidth=2.5, 
+                                label=f'Msg {msg_id}')
+                legend_elements.append(line)
+            
+            if legend_elements:
+                self.ax.legend(handles=legend_elements, loc='upper right', fontsize=9, 
+                             frameon=True, fancybox=True, shadow=True)
         
         if transmission_count == 0:
-            print(f"   ✨ No SENDING nodes - screen should have NO orange lines!")
+            print(f"   ✨ No SENDING nodes - screen should have NO colored lines!")
+        else:
+            print(f"   📡 Drawing {transmission_count} transmissions with message-specific colors")
 
     def draw_info_panel(self):
-        """Draw information panel with messages and statistics"""
+        """Draw simple, clean information panel"""
         self.info_ax.clear()
-        self.info_ax.set_title("Messages & Statistics")
+        self.info_ax.set_title(f"Messages & Statistics - Frame {self.current_frame}/{self.total_frames}", fontsize=12, fontweight='bold')
         self.info_ax.axis('off')
         
-        # Control instructions
-        control_text = "CONTROLS:\n"
-        control_text += "SPACE: Next Frame\n"
-        control_text += "Q: Quit\n"
-        control_text += "R: Reset\n"
-        control_text += "T: Show Routing Tables\n\n"
+        y_pos = 0.95
+        line_height = 0.035
         
-        # Current frame info
-        info_text = control_text
-        info_text += f"Current Frame: {self.current_frame}/{self.total_frames}\n\n"
+        def add_text(text, y, fontsize=10, color='black', weight='normal'):
+            self.info_ax.text(0.02, y, text, transform=self.info_ax.transAxes,
+                            fontsize=fontsize, verticalalignment='top', 
+                            fontfamily='monospace', color=color, fontweight=weight)
+            return y - line_height
         
-        # Routing Learning Status
-        total_routes = sum(len(node.routing_table) for node in self.network.nodes.values())
-        avg_routes = total_routes / len(self.network.nodes) if self.network.nodes else 0
-        info_text += f"ROUTING LEARNING:\n"
-        info_text += "-" * 25 + "\n"
-        info_text += f"📚 Total routes learned: {total_routes}\n"
-        info_text += f"📚 Avg routes per node: {avg_routes:.1f}\n"
-        info_text += f"📚 Press 'T' to see all tables\n\n"
+        def add_header(title, y):
+            y = add_text(title, y, fontsize=11, weight='bold')
+            y = add_text("-" * len(title), y-0.015, fontsize=10)
+            return y - 0.01
         
-        # Messages status
-        info_text += "MESSAGES STATUS:\n"
-        info_text += "-" * 25 + "\n"
+        # ALL MESSAGES
+        y_pos = add_header("ALL MESSAGES", y_pos)
         
-        for msg_id, message in self.messages.items():
-            status = message.get_status()
-            
-            # Status symbols
-            if status == "SUCCESS":
-                status_symbol = "✅"
-                color_status = " (SUCCESS - Complete)"
-            elif status == "SUCCESS_RUNNING":
-                status_symbol = "🎯"
-                color_status = " (SUCCESS - Still Running)"
-            elif status == "EXPIRED":
-                status_symbol = "❌"
-                color_status = " (EXPIRED - Never Reached)"
-            elif status == "ACTIVE":
-                status_symbol = "🔄"
-                color_status = " (ACTIVE - Searching)"
-            else:  # WAITING
-                status_symbol = "⏳"
-                color_status = f" (Starts: Frame {message.start_frame})"
-            
-            # Calculate current minimum hop limit across all active paths
-            current_min_hops = "?"
-            if message.is_active:
-                # Find minimum hop limit from all nodes with this message
-                min_hops_found = []
-                for node_id, node in self.network.nodes.items():
-                    for pending_item in node.pending_messages:
-                        if len(pending_item) >= 3:
-                            pending_msg, path, local_hop_limit = pending_item
-                            if pending_msg.id == message.id:
-                                min_hops_found.append(local_hop_limit)
+        # Sort messages by start frame, then by message ID
+        sorted_messages = sorted(self.messages.items(), key=lambda x: (x[1].start_frame, x[0]))
+        
+        for msg_id, message in sorted_messages:
+            if not message.is_completed:
+                # Show basic message info
+                y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} (Start: Frame {message.start_frame})", 
+                            y_pos)
                 
-                if min_hops_found:
-                    current_min_hops = min(min_hops_found)
+                # Show hop limit if message is active
+                if message.is_active:
+                    # Calculate current hop limit
+                    current_min_hops = "?"
+                    min_hops_found = []
+                    
+                    for node_id, node in self.network.nodes.items():
+                        for pending_item in node.pending_messages:
+                            if len(pending_item) >= 3:
+                                pending_msg, path, local_hop_limit = pending_item
+                                if pending_msg.id == message.id:
+                                    min_hops_found.append(local_hop_limit)
+                    
+                    if min_hops_found:
+                        current_min_hops = min(min_hops_found)
+                    else:
+                        current_min_hops = 0
+                    
+                    y_pos = add_text(f"  Hop Limit: {current_min_hops}/{message.hop_limit}", y_pos, fontsize=9)
+                
+                y_pos -= 0.01
+        
+        y_pos -= 0.02
+        
+        # COMPLETED MESSAGES
+        y_pos = add_header("COMPLETED MESSAGES", y_pos)
+        
+        completed_found = False
+        # Sort completed messages by message ID
+        sorted_completed = sorted([(msg_id, msg) for msg_id, msg in self.messages.items() if msg.is_completed])
+        
+        for msg_id, message in sorted_completed:
+                completed_found = True
+                
+                # Use the message's own status
+                status = message.get_status()
+                
+                if status == "SUCCESS":
+                    y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - SUCCESS", 
+                                y_pos, color='green', weight='bold')
                 else:
-                    current_min_hops = 0
-            elif message.is_completed:
-                current_min_hops = 0
-            else:
-                current_min_hops = message.hop_limit
+                    y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - FAILED", 
+                                y_pos, color='red', weight='bold')
                 
-            info_text += f"{status_symbol} Msg {msg_id}: {message.source}→{message.target}\n"
-            info_text += f"   Hops: {current_min_hops}/{message.hop_limit}{color_status}\n"
-            
-            # Show current paths for active messages
-            if message.is_active and message.paths:
-                info_text += f"   Active paths: {len(message.paths)}\n"
-                # Show up to 2 most recent paths
-                for i, path in enumerate(message.paths[-2:]):
-                    path_str = "→".join(map(str, path))
-                    if len(path_str) > 20:  # Truncate long paths
-                        path_str = path_str[:17] + "..."
-                    info_text += f"   [{i+1}] {path_str}\n"
-            
-            info_text += "\n"  # Extra line between messages
+                y_pos -= 0.01
         
-        # Statistics
-        info_text += "STATISTICS:\n"
-        info_text += "-" * 25 + "\n"
+        if not completed_found:
+            y_pos = add_text("None", y_pos)
         
-        active_messages = sum(1 for m in self.messages.values() if m.is_active)
-        completed_messages = sum(1 for m in self.messages.values() if m.is_completed)
-        successful_messages = sum(1 for m in self.messages.values() if m.target_received)
+        y_pos -= 0.02
         
-        info_text += f"Active Messages: {active_messages}\n"
-        info_text += f"Completed: {completed_messages}\n"
-        info_text += f"🎯 Target Reached: {successful_messages}\n"
-        info_text += f"✅ Successful: {self.stats['messages_reached_target']}\n"
-        info_text += f"❌ Expired: {self.stats['messages_hop_limit_exceeded']}\n"
-        
-        # Current frame collisions
+        # Simple collision info
         current_collisions = sum(1 for node in self.network.nodes.values() 
                             if node.status_flags[node.STATUS_COLLISION])
-        info_text += f"💥 Collisions this frame: {current_collisions}\n"
-        info_text += f"💥 Total collisions: {self.stats['total_collisions']}\n"
         
-        # Legend
-        info_text += "\nSTATUS LEGEND:\n"
-        info_text += "-" * 25 + "\n"
-        info_text += "🎯 Target reached, still running\n"
-        info_text += "✅ Target reached, completed\n"
-        info_text += "🔄 Active, searching for target\n"
-        info_text += "❌ Expired, never reached target\n"
-        info_text += "⏳ Waiting to start\n"
-        
-        # Display the text
-        self.info_ax.text(0.02, 0.98, info_text, transform=self.info_ax.transAxes,
-                        fontsize=8, verticalalignment='top', fontfamily='monospace')
+        if current_collisions > 0:
+            y_pos = add_header("COLLISIONS", y_pos)
+            y_pos = add_text(f"Collisions this frame: {current_collisions}", y_pos)   
+
 
     def update_display(self):
         """Update the complete display"""
@@ -577,10 +607,14 @@ class Simulator:
             if message.is_completed and not hasattr(message, '_stats_counted'):
                 message._stats_counted = True  # Mark as counted
                 newly_completed += 1
-                if message.target_received:
+                
+                # Use the message's own status
+                if message.get_status() == "SUCCESS":
                     self.stats['messages_reached_target'] += 1  # Success: target received
+                    print(f"      ✅ Message {message.id} SUCCESS: Target reached")
                 else:
-                    self.stats['messages_hop_limit_exceeded'] += 1  # Expired: never reached target
+                    self.stats['messages_hop_limit_exceeded'] += 1  # Failed: never reached target
+                    print(f"      ❌ Message {message.id} FAILED: Target never reached")
                     
         print(f"📊 Frame {self.current_frame} stats: Active={active_count}, Collisions={collision_count}, Completed={newly_completed}")
         
@@ -596,7 +630,7 @@ class Simulator:
                             if pending_msg.id == message.id:
                                 hop_limits.append(local_hop_limit)
                 
-                status_info = f"({message.get_status()})"
+                status_info = f"(State: {message.get_state()})"
                 if hop_limits:
                     min_hops = min(hop_limits)
                     max_hops = max(hop_limits)
@@ -607,11 +641,73 @@ class Simulator:
                 else:
                     print(f"    Message {msg_id}: finishing up... {status_info}")
             elif message.is_completed:
-                print(f"    Message {msg_id}: COMPLETED ({message.get_status()})")
+                status = message.get_status()
+                print(f"    Message {msg_id}: COMPLETED (State: {message.get_state()}, Status: {status})")
+
+    def _check_stalled_messages(self):
+        """Check for messages that have no pending copies and should be completed"""
+        print("🔍 Checking for stalled messages with no pending copies...")
+        
+        for message in self.messages.values():
+            if message.is_active and not message.is_completed:
+                # Check if this message has any pending copies anywhere
+                has_pending = False
+                
+                for node_id, node in self.network.nodes.items():
+                    for pending_item in node.pending_messages:
+                        if len(pending_item) >= 2:
+                            pending_msg = pending_item[0]
+                            if pending_msg.id == message.id:
+                                has_pending = True
+                                break
+                    if has_pending:
+                        break
+                
+                if not has_pending:
+                    print(f"    🚫 Message {message.id} has no pending copies - COMPLETING as expired")
+                    message.complete_message("hop_limit_exceeded")
+                    self._clear_message_status(message)
 
     def _process_transmissions(self):
         """Process all message transmissions for this frame"""
         print("Processing transmissions...")
+        
+        # CRITICAL FIX: Check for expired messages FIRST before any processing
+        print("🔍 Checking for expired messages with hop limit 0...")
+        expired_count = 0
+        
+        for node_id, node in self.network.nodes.items():
+            expired_indices = []
+            for i, pending_item in enumerate(node.pending_messages):
+                if len(pending_item) >= 3:
+                    message, path, local_hop_limit = pending_item
+                    if local_hop_limit <= 0 and not message.is_completed:
+                        print(f"    🚫 Found expired message {message.id} at node {node_id} (hop_limit: {local_hop_limit})")
+                        message.complete_message("hop_limit_exceeded")
+                        self._clear_message_status(message)
+                        expired_indices.append(i)
+                        expired_count += 1
+                elif len(pending_item) == 2:
+                    # Handle old format
+                    message, path = pending_item
+                    hops_used = len(path) - 1
+                    local_hop_limit = message.hop_limit - hops_used
+                    if local_hop_limit <= 0 and not message.is_completed:
+                        print(f"    🚫 Found expired message {message.id} at node {node_id} (calculated hop_limit: {local_hop_limit})")
+                        message.complete_message("hop_limit_exceeded")
+                        self._clear_message_status(message)
+                        expired_indices.append(i)
+                        expired_count += 1
+            
+            # Remove expired messages from pending (in reverse order to maintain indices)
+            for i in reversed(expired_indices):
+                node.pending_messages.pop(i)
+        
+        if expired_count > 0:
+            print(f"    ✅ Completed {expired_count} expired messages")
+        
+        # NEW: Check for stalled messages with no pending copies
+        self._check_stalled_messages()
         
         # Phase 1: All nodes send their pending messages
         transmission_queue = []  # List of (sender_id, receiver_id, message, path, hop_limit)
@@ -678,6 +774,9 @@ class Simulator:
                     sender_node.set_sending()
                 
                 sender_node.pending_messages.clear()
+        
+        # STORE transmission queue for drawing
+        self._current_transmissions = transmission_queue
         
         
         # CRITICAL: Detect collisions BEFORE processing

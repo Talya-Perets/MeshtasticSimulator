@@ -12,10 +12,10 @@ class Message:
         self.target = target_node  # Target node ID
         self.hop_limit = 4
         
-        # Random start frame (when the message begins transmission)
-        # Start between frame 1 and total_frames - 10 (give time to complete)
-        latest_start = max(1, total_frames - 15)
-        self.start_frame = random.randint(1, latest_start)
+        # Better random start frame distribution
+        # Start between frame 1 and 2/3 of total frames (give more time to complete)
+        max_start_frame = max(1, int(total_frames * 0.67))  # Use 2/3 of total frames
+        self.start_frame = random.randint(1, max_start_frame)
         
         # Current hop count (starts at hop_limit)
         self.current_hops = self.hop_limit
@@ -23,8 +23,11 @@ class Message:
         # Message status
         self.is_active = False  # Not started yet
         self.is_completed = False  # Hop limit reached or manually stopped
-        self.target_received = False  # NEW: Did target receive the message?
+        self.target_received = False  # Did target receive the message?
         self.completion_reason = None  # "hop_limit_exceeded" only
+        
+        # Status starts as FAILED, changes to SUCCESS when target receives
+        self.status = "FAILED"  # SUCCESS or FAILED
         
         # Track multiple message paths (flooding creates multiple routes)
         self.paths = []  # List of paths - each path is a list of node IDs
@@ -42,35 +45,39 @@ class Message:
         self.current_hops -= 1
         
     def target_reached(self):
-        """Mark that target has received the message - but continue running"""
+        """Mark that target has received the message - change status to SUCCESS"""
         self.target_received = True
-        print(f"      🎯 Message {self.id} TARGET REACHED - but continues running until hop limit")
+        self.status = "SUCCESS"  # Change status to SUCCESS
+        print(f"      🎯 Message {self.id} TARGET REACHED - Status changed to SUCCESS")
         
     def complete_message(self, reason):
-        """Mark message as completed - only when hop limit exceeded"""
-        if reason == "hop_limit_exceeded":
+        """Mark message as completed"""
+        if reason == "reached_target":
+            # Target reached - mark as received but complete immediately
+            self.target_received = True
             self.is_completed = True
             self.is_active = False
             self.completion_reason = reason
-            print(f"      🛑 Message {self.id} COMPLETED: {reason}")
-        else:
-            # Don't complete for other reasons - just mark target received
-            self.target_reached()
+            print(f"      🎯 Message {self.id} COMPLETED: TARGET REACHED!")
+        elif reason == "hop_limit_exceeded":
+            # Hop limit exceeded - complete
+            self.is_completed = True
+            self.is_active = False
+            self.completion_reason = reason
+            print(f"      🛑 Message {self.id} COMPLETED: HOP LIMIT EXCEEDED")
             
+    def get_state(self):
+        """Get current state of the message"""
+        if self.is_completed:
+            return "COMPLETED"  # Message finished
+        elif self.is_active:
+            return "ACTIVE"  # Message is running
+        else:
+            return "WAITING"  # Message not started yet
+    
     def get_status(self):
         """Get current status of the message"""
-        if self.is_completed:
-            if self.target_received:
-                return "SUCCESS"  # Target received AND hop limit exceeded
-            else:
-                return "EXPIRED"  # Hop limit exceeded but target never received
-        elif self.is_active:
-            if self.target_received:
-                return "SUCCESS_RUNNING"  # Target received but still running
-            else:
-                return "ACTIVE"  # Still running, target not reached yet
-        else:
-            return "WAITING"  # Not started yet
+        return self.status  # Always return the current status (SUCCESS or FAILED)
         
     def create_new_copy(self, sender_id, receiver_id, sender_path):
         """Create a new copy of the message for flooding to neighbor
@@ -124,6 +131,11 @@ class Message:
             
     def __str__(self):
         """String representation of the message"""
-        status = self.get_status()
-        target_marker = " 🎯" if self.target_received else ""
-        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | Status: {status}{target_marker}"
+        state = self.get_state()
+        status_marker = ""
+        if self.is_completed:
+            # Add status when completed
+            status_marker = f" | Status: {self.get_status()}"
+        elif self.target_received:
+            status_marker = " 🎯"
+        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | State: {state}{status_marker}"
