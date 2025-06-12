@@ -21,7 +21,7 @@ Author: Network Simulation Project
 """
 
 # Import the simulator class
-from NetworkSimulator import NetworkSimulator
+from simulator import Simulator
 
 def main():
     """Main program entry point"""
@@ -33,7 +33,7 @@ def main():
     print()
     
     # Create simulator instance
-    simulator = NetworkSimulator()
+    simulator = Simulator()
     
     try:
         # Get user input for simulation parameters
@@ -58,7 +58,7 @@ def run_example_simulation():
     """Run a predefined example simulation for testing"""
     print("Running example simulation...")
     
-    simulator = NetworkSimulator()
+    simulator = Simulator()
     
     # Setup with predefined parameters
     simulator.setup_simulation(num_nodes=12, num_messages=3, total_frames=40)
