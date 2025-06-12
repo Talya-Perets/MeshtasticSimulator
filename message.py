@@ -1,101 +1,91 @@
-import uuid
-import time
+import random
 
 class Message:
-    """Represents a message sent through the network"""
+    """
+    Represents a message in the network simulation
+    Each message has: ID, source, destination, hop limit, and start frame
+    """
     
-    def __init__(self, source, destination, content="", hop_limit=30, start_time=0):
-        self.message_id = str(uuid.uuid4())[:8]  # Short message ID
-        self.source = source
-        self.destination = destination
-        self.content = content
-        self.hop_limit = hop_limit
-        self.current_hop_count = 0
-        self.path = [source]  # List of node IDs the message passed through
-        self.creation_time = time.time()
-        self.start_time = start_time  # Simulation time when message should start
-        self.arrival_time = None
-        self.reached_destination = False
-        self.current_node = source
-        self.next_hops = []  # For visualization - nodes that will receive in next step
-        self.failed = False
-        self.failure_reason = ""
-        self.active = False  # Whether message is currently active in simulation
-        self.received_from = None  # NEW: Track who sent this message to current node
-    
-    def add_to_path(self, node_id, sender_id=None):
-        """Add node to message path and track sender"""
-        self.path.append(node_id)
-        self.current_node = node_id
-        self.current_hop_count += 1
-        self.received_from = sender_id  # Track who sent this message
-    
-    def can_hop(self):
-        """Check if message can still hop"""
-        return self.current_hop_count < self.hop_limit and not self.failed and self.active
-    
-    def set_next_hops(self, node_ids):
-        """Set nodes that will receive this message in next step"""
-        self.next_hops = node_ids.copy()
-    
-    def mark_as_arrived(self):
-        """Mark message as successfully arrived"""
-        self.reached_destination = True
-        self.arrival_time = time.time()
-        self.active = False
-    
-    def mark_as_failed(self, reason):
-        """Mark message as failed"""
-        self.failed = True
-        self.failure_reason = reason
-        self.active = False
-    
-    def activate(self):
-        """Activate message for transmission"""
-        self.active = True
-    
-    def get_delivery_time(self):
-        """Get delivery time in seconds"""
-        if self.arrival_time:
-            return self.arrival_time - self.creation_time
-        return None
-    
-    def get_status(self):
-        """Get current message status"""
-        if self.reached_destination:
-            return "DELIVERED"
-        elif self.failed:
-            return f"FAILED: {self.failure_reason}"
-        elif not self.can_hop():
-            return "EXPIRED"
-        elif not self.active:
-            return "WAITING"
-        else:
-            return "IN_TRANSIT"
-    
-    def get_full_path_info(self):
-        """Get detailed path information including senders"""
-        if len(self.path) <= 1:
-            return f"At source: {self.source}"
+    def __init__(self, message_id, source_node, target_node, total_frames):
+        self.id = message_id
+        self.source = source_node  # Source node ID
+        self.target = target_node  # Target node ID
         
-        path_info = f"{self.source}"
-        for i in range(1, len(self.path)):
-            path_info += f" -> {self.path[i]}"
+        # Random hop limit between 3-6
+        self.hop_limit = random.randint(3, 6)
         
-        if self.received_from is not None and self.current_node != self.source:
-            path_info += f" (from {self.received_from})"
+        # Random start frame (when the message begins transmission)
+        self.start_frame = random.randint(0, total_frames - 1)
         
-        return path_info
-    
-    def copy(self):
-        """Create a copy of this message for forwarding."""
-        new_msg = Message(self.source, self.destination, self.content, self.hop_limit, self.start_time)
-        new_msg.message_id = self.message_id  # Keep same ID
-        new_msg.current_hop_count = self.current_hop_count
-        new_msg.path = self.path.copy()
-        new_msg.active = self.active
-        new_msg.received_from = self.received_from
-        return new_msg
-    
+        # Current hop count (starts at hop_limit)
+        self.current_hops = self.hop_limit
+        
+        # Message status
+        self.is_active = False  # Not started yet
+        self.is_completed = False  # Reached destination or expired
+        self.completion_reason = None  # "reached_target" or "hop_limit_exceeded"
+        
+        # Track multiple message paths (flooding creates multiple routes)
+        self.paths = []  # List of paths - each path is a list of node IDs
+        self.active_copies = {}  # Dictionary: node_id -> path_to_that_node
+        
+    def start_transmission(self):
+        """Mark message as active and initialize first path from source"""
+        self.is_active = True
+        initial_path = [self.source]
+        self.paths.append(initial_path)
+        self.active_copies[self.source] = initial_path.copy()
+        
+    def decrease_hop(self):
+        """Decrease hop count by 1"""
+        self.current_hops -= 1
+        
+    def complete_message(self, reason):
+        """Mark message as completed with reason"""
+        self.is_completed = True
+        self.is_active = False
+        self.completion_reason = reason
+        
+    def create_new_copy(self, current_node, next_node, current_path):
+        """Create a new copy of the message for flooding to neighbor"""
+        new_path = current_path.copy()
+        new_path.append(next_node)
+        
+        # Add new path if it's unique
+        if new_path not in self.paths:
+            self.paths.append(new_path)
+            
+        # Update active copy for this node
+        self.active_copies[next_node] = new_path
+        
+        return new_path
+        
+    def get_routing_table_data(self):
+        """Extract routing information for building routing tables"""
+        routing_info = {}
+        
+        for path in self.paths:
+            if len(path) < 2:
+                continue
+                
+            # For each node in path, record how to reach the source
+            for i in range(1, len(path)):
+                current_node = path[i]
+                previous_node = path[i-1]
+                
+                # This tells us: from current_node, to reach source, go via previous_node
+                if current_node not in routing_info:
+                    routing_info[current_node] = {}
+                    
+                routing_info[current_node][self.source] = {
+                    'next_hop': previous_node,
+                    'distance': i,
+                    'full_path': path[:i+1]
+                }
+                
+        return routing_info
+            
     def __str__(self):
-        return f"Message {self.message_id}: {self.source} -> {self.destination} (Hops: {self.current_hop_count}/{self.hop_limit})"
+        """String representation of the message"""
+        status = "Completed" if self.is_completed else ("Active" if self.is_active else "Waiting")
+        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | Status: {status}"

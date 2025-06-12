@@ -1,187 +1,103 @@
 #!/usr/bin/env python3
 """
-Meshtastic Network Simulator - Graph Keyboard Control
+Network Flooding Simulator - Main Program
+
+This program simulates a network flooding algorithm with intelligent message forwarding.
+Features:
+- Smart flooding (nodes don't re-forward messages they've already seen)
+- Collision detection (multiple simultaneous transmissions to same node)
+- Visual representation using NetworkX and Matplotlib
+- Step-by-step simulation with user control
+- Statistics tracking and path analysis
+
+Usage:
+    python main.py
+
+Controls:
+    - SPACE/Enter: Advance to next frame
+    - 'q': Quit simulation
+
+Author: Network Simulation Project
 """
 
-from simulator import MeshtasticSimulator
-import matplotlib.pyplot as plt
-import threading
-import time
+# Import the simulator class
+from NetworkSimulator import NetworkSimulator
 
 def main():
-    """Main function with graph keyboard control"""
-    print("=== Meshtastic Network Simulator ===")
+    """Main program entry point"""
+    print("="*60)
+    print("NETWORK FLOODING SIMULATION")
+    print("="*60)
+    print("This simulation demonstrates intelligent flooding algorithm")
+    print("with collision detection and path discovery.")
+    print()
     
-    # Get number of nodes
-    while True:
-        try:
-            num_nodes = int(input("Enter number of nodes (10-100): "))
-            if 10 <= num_nodes <= 100:
-                break
-            else:
-                print("Please enter a number between 10 and 100")
-        except ValueError:
-            print("Please enter a valid number")
+    # Create simulator instance
+    simulator = NetworkSimulator()
     
-    # Create simulator
-    sim = MeshtasticSimulator()
-    
-    # Create network
-    print(f"\nCreating network with {num_nodes} nodes...")
-    network = sim.create_network(
-        num_nodes=num_nodes, 
-        space_size=100, 
-        target_neighbors=4, 
-        distribution="improved_random"
-    )
-    
-    # Set routing to flooding
-    sim.set_routing_algorithm("flooding")
-    
-    # Display network statistics
-    sim.print_network_stats()
-    
-    # Generate random messages - start next message when previous completes
-    num_messages = max(1, num_nodes // 3)
-    print(f"\nGenerating {num_messages} random messages...")
-    
-    auto_messages = sim.generate_random_message_pairs(num_messages)
-    
-    # Setup simulation variables
-    step_count = 0
-    max_steps = 50
-    running = True
-    waiting_for_input = False
-    
-    def handle_key(key):
-        """Handle keyboard input from graph window"""
-        nonlocal running, step_count, waiting_for_input
-        
-        print(f"\n🔧 DEBUG: Key pressed: '{key}' (waiting_for_input: {waiting_for_input})")
-        
-        # IMPORTANT: Prevent double execution
-        if waiting_for_input:
-            print("🔧 DEBUG: Already processing input, ignoring...")
-            return
-        
-        if key == ' ':  # Space bar
-            if step_count < max_steps:
-                waiting_for_input = True  # Block further inputs
-                step_count += 1
-                
-                print(f"\n--- Step {step_count} ---")
-                print("🔧 DEBUG: About to call step_simulation()")
-                
-                # Execute simulation step
-                has_more = sim.step_simulation()
-                
-                print("🔧 DEBUG: step_simulation() returned:", has_more)
-                
-                # Update visualization - NO KEY CALLBACK to prevent double execution
-                try:
-                    print("🔧 DEBUG: About to update visualization")
-                    sim.visualize_current_state(key_callback=None)  # REMOVED CALLBACK!
-                    print("🔧 DEBUG: Visualization updated successfully")
-                except Exception as e:
-                    print(f"🔧 DEBUG: Visualization update failed: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Check if simulation is complete
-                if not has_more and len(sim.all_messages) == len(sim.completed_messages):
-                    print("All messages completed!")
-                    print("\n=== Final Results ===")
-                    sim.print_simulation_results()
-                    running = False
-                elif step_count >= max_steps:
-                    print("Simulation reached maximum steps!")
-                    running = False
-                
-                waiting_for_input = False  # Ready for next input
-                print("🔧 DEBUG: Ready for next SPACE press")
-                
-        elif key == 'q':  # Quit
-            print("Simulation stopped by user.")
-            running = False
-            plt.close('all')
-    
-    # Setup visualization
-    print("\n=== Simulation ===")
-    print("Controls in graph window:")
-    print("  - SPACE = Next step")
-    print("  - Q = Quit")
-    print("  - Click graph to focus first!")
-    
-    # Show initial visualization
     try:
-        print("🔧 DEBUG: Setting up matplotlib")
-        plt.figure(figsize=(16, 10))
-        plt.ion()  # Interactive mode
+        # Get user input for simulation parameters
+        num_nodes, num_messages, total_frames = simulator.get_user_input()
         
-        print("🔧 DEBUG: Showing initial visualization")
-        # Show initial state with key callback
-        sim.visualize_current_state(key_callback=handle_key)
-        print("\nGraph window opened! Click on it and press SPACE to advance simulation.")
+        # Setup the simulation
+        simulator.setup_simulation(num_nodes, num_messages, total_frames)
         
-        print("🔧 DEBUG: Entering main loop")
-        # Keep the program running and responsive - FIXED VERSION
-        while running:
-            try:
-                plt.pause(1.0)  # Even slower pause - 1 second intervals
-                
-                # Check if window was closed
-                if not plt.get_fignums():  # No figures open
-                    print("Graph window closed")
-                    break
-                    
-            except KeyboardInterrupt:
-                print("\nInterrupted by user")
-                break
-            except Exception as e:
-                print(f"🔧 DEBUG: Error in main loop: {e}")
-                break
-                
-        print("🔧 DEBUG: Exited main loop")
-            
+        # Run the simulation
+        simulator.run_simulation()
+        
+    except KeyboardInterrupt:
+        print("\nSimulation interrupted by user (Ctrl+C)")
     except Exception as e:
-        print(f"Visualization setup error: {e}")
+        print(f"\nError occurred during simulation: {e}")
         import traceback
         traceback.print_exc()
-        print("\nRunning in text-only mode...")
-        
-        # Fallback to terminal input - IMPROVED VERSION
-        print("🔧 DEBUG: Entering text-only mode")
-        while step_count < max_steps and running:
-            try:
-                user_input = input(f"\nStep {step_count + 1} - Press ENTER to advance, 'q' to quit: ").strip().lower()
-                
-                if user_input == 'q':
-                    break
-                
-                step_count += 1
-                print(f"\n--- Step {step_count} ---")
-                
-                has_more = sim.step_simulation()
-                
-                if not has_more and len(sim.all_messages) == len(sim.completed_messages):
-                    print("All messages completed!")
-                    break
-                    
-            except KeyboardInterrupt:
-                break
-        
-        print("\n=== Final Results ===")
-        sim.print_simulation_results()
+    finally:
+        print("\nSimulation ended.")
+
+def run_example_simulation():
+    """Run a predefined example simulation for testing"""
+    print("Running example simulation...")
     
-    print("\nSimulation complete!")
+    simulator = NetworkSimulator()
+    
+    # Setup with predefined parameters
+    simulator.setup_simulation(num_nodes=12, num_messages=3, total_frames=40)
+    
+    # Run simulation
+    simulator.run_simulation()
+
+def print_usage_instructions():
+    """Print detailed usage instructions"""
+    print("\nUSAGE INSTRUCTIONS:")
+    print("-" * 40)
+    print("1. Run the program: python main.py")
+    print("2. Enter simulation parameters:")
+    print("   - Number of nodes (10-100)")
+    print("   - Number of messages")
+    print("   - Total simulation frames")
+    print("3. Use controls during simulation:")
+    print("   - SPACE or Enter: Next frame")
+    print("   - 'q': Quit simulation")
+    print("\nCOLOR CODING:")
+    print("- Green: Source node")
+    print("- Red: Target node") 
+    print("- Pink: Collision occurred")
+    print("- Orange: Currently sending")
+    print("- Light Blue: Normal node")
+    print("\nORANGE LINES: Active transmissions this frame")
+    print("ARROWS: Direction of message flow")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\nSimulation interrupted by user.")
-    except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
-        traceback.print_exc()
-        print("Please check your input and try again.")
+    # Check if user wants to see instructions
+    import sys
+    
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ["-h", "--help", "help"]:
+            print_usage_instructions()
+            sys.exit(0)
+        elif sys.argv[1] in ["-e", "--example", "example"]:
+            run_example_simulation()
+            sys.exit(0)
+    
+    # Run main simulation
+    main()
