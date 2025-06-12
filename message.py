@@ -72,17 +72,28 @@ class Message:
         else:
             return "WAITING"  # Not started yet
         
-    def create_new_copy(self, current_node, next_node, current_path):
-        """Create a new copy of the message for flooding to neighbor"""
-        new_path = current_path.copy()
-        new_path.append(next_node)
+    def create_new_copy(self, sender_id, receiver_id, sender_path):
+        """Create a new copy of the message for flooding to neighbor
+        
+        Args:
+            sender_id: The node that is sending the message
+            receiver_id: The node that will receive the message  
+            sender_path: The path the message took to reach the sender
+            
+        Returns:
+            new_path: The new path including the receiver
+        """
+        # FIXED: Create new path correctly
+        new_path = sender_path.copy()
+        new_path.append(receiver_id)  # Add the receiver to the path
         
         # Add new path if it's unique
         if new_path not in self.paths:
             self.paths.append(new_path)
+            print(f"        📍 New path discovered: {' → '.join(map(str, new_path))}")
             
         # Update active copy for this node
-        self.active_copies[next_node] = new_path
+        self.active_copies[receiver_id] = new_path
         
         return new_path
         

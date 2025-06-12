@@ -117,18 +117,22 @@ class Node:
         processed_messages = []
         for message, sender_id, sender_path in self.received_messages:
             
-            # Create new path for this copy
+            # FIXED: Create new path correctly with proper parameter names
             new_path = message.create_new_copy(sender_id, self.id, sender_path)
             
-            # Calculate local hop limit (don't modify the original message)
-            local_hop_limit = message.hop_limit - (len(new_path) - 1)
+            # FIXED: Calculate hop limit correctly
+            # Number of hops used = path length - 1 (since path includes source)
+            hops_used = len(new_path) - 1
+            local_hop_limit = message.hop_limit - hops_used
+            
+            print(f"      📊 Node {self.id}: Path={' → '.join(map(str, new_path))}, Hops used={hops_used}, Remaining={local_hop_limit}")
             
             # Check if this is the target
             if message.target == self.id:
-                # MESSAGE REACHED TARGET - COMPLETE IT
+                # MESSAGE REACHED TARGET - COMPLETE IT IMMEDIATELY
                 if not message.is_completed:
                     message.complete_message("reached_target")
-                   
+                    print(f"      🎯 Message {message.id} reached target {self.id} - COMPLETING")
                 else:
                     print(f"      ℹ️  Message {message.id} already completed, arrived at target {self.id}")
                 processed_messages.append((message, new_path))
@@ -137,7 +141,7 @@ class Node:
                 # HOP LIMIT EXCEEDED - COMPLETE IT
                 if not message.is_completed:
                     message.complete_message("hop_limit_exceeded")
-                    
+                    print(f"      ⚠️  Message {message.id} hop limit exceeded at node {self.id} (used {hops_used}/{message.hop_limit})")
                 processed_messages.append((message, new_path))
                 
             else:

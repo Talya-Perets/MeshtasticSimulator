@@ -217,11 +217,9 @@ class Simulator:
             # Update display AFTER frame execution
             self.update_display()
             
-            # IMPORTANT: Clear completed messages AFTER display update
+            # Clear completed messages after display
             if hasattr(self, 'completed_this_frame'):
-                # Don't clear here - will be cleared at start of NEXT frame
-                # This ensures they show in the current frame display
-                pass
+                self.completed_this_frame.clear()
             
             # Check completion
             if all(msg.is_completed for msg in self.messages.values()):
@@ -510,13 +508,7 @@ class Simulator:
             print(f"EXECUTING FRAME {self.current_frame + 1}")  # Show next frame number
             print(f"{'='*50}")
             
-            # CRITICAL FIX 1: Clear completed messages from PREVIOUS frame FIRST
-            if hasattr(self, 'completed_this_frame') and self.completed_this_frame:
-                for completed_message in self.completed_this_frame:
-                    self._clear_message_status(completed_message)
-                self.completed_this_frame.clear()
-            
-            # CRITICAL FIX 2: Reset all nodes FIRST (clear old SENDING status)
+            # Reset all nodes FIRST (clear old SENDING status)
             for node_id, node in self.network.nodes.items():
                 node.reset_frame_status()
             
@@ -631,9 +623,12 @@ class Simulator:
                 active_pending = []
                 for pending_item in sender_node.pending_messages:
                     if len(pending_item) == 2:
+                        # Old format - calculate hop limit
                         message, current_path = pending_item
-                        local_hop_limit = message.hop_limit - (len(current_path) - 1)
+                        hops_used = len(current_path) - 1
+                        local_hop_limit = message.hop_limit - hops_used
                     else:
+                        # New format - hop limit already calculated
                         message, current_path, local_hop_limit = pending_item
                     
                     if message.is_completed:
@@ -643,7 +638,11 @@ class Simulator:
                         print(f"    🚫 Removing inactive msg {message.id} from node {sender_id}")
                         continue
                     elif local_hop_limit <= 0:
-                        print(f"    🚫 Removing msg {message.id} - no hops left (hop_limit: {local_hop_limit})")
+                        print(f"    🚫 Message {message.id} hop limit reached (hop_limit: {local_hop_limit}) - COMPLETING")
+                        # CRITICAL FIX: Complete the message when hop limit is exhausted
+                        if not message.is_completed:
+                            message.complete_message("hop_limit_exceeded")
+                            self._clear_message_status(message)
                         continue
                     else:
                         active_pending.append((message, current_path, local_hop_limit))
@@ -746,6 +745,8 @@ class Simulator:
                 for message, path in processed:
                     if message.is_completed:
                         completed_messages_this_frame.append(message)
+                        # IMMEDIATE CLEANUP when message completes
+                        self._clear_message_status(message)
                     else:
                         remaining_hops = message.hop_limit - len(path) + 1
         
@@ -757,6 +758,7 @@ class Simulator:
         target_id = completed_message.target
         message_id = completed_message.id
         
+        print(f"   🧹 Clearing status for completed message {message_id} ({source_id}→{target_id})")
         
         # Remove this message from ALL nodes' pending_messages
         for node_id, node in self.network.nodes.items():
@@ -777,7 +779,7 @@ class Simulator:
             node.pending_messages = new_pending
             removed_count = original_count - len(node.pending_messages)
             if removed_count > 0:
-                print(f"   Removed {removed_count} copies of msg {message_id} from node {node_id}")
+                print(f"     ↳ Removed {removed_count} copies of msg {message_id} from node {node_id}")
         
         # CRITICAL: Check if source has OTHER active messages
         source_has_other_active = any(
@@ -787,7 +789,9 @@ class Simulator:
         )
         if not source_has_other_active:
             self.network.nodes[source_id].set_as_source(False)
-        
+            print(f"     ↳ Node {source_id} no longer GREEN (no other active messages as source)")
+        else:
+            print(f"     ↳ Node {source_id} stays GREEN (has other active messages as source)")
             
         # CRITICAL: Check if target has OTHER active messages
         target_has_other_active = any(
@@ -797,9 +801,9 @@ class Simulator:
         )
         if not target_has_other_active:
             self.network.nodes[target_id].set_as_target(False)
-            print(f"   ✅ Node {target_id} no longer RED (no other active messages as target)")
+            print(f"     ↳ Node {target_id} no longer RED (no other active messages as target)")
         else:
-            print(f"   ⚠️  Node {target_id} stays RED (has other active messages as target)")
+            print(f"     ↳ Node {target_id} stays RED (has other active messages as target)")
 
     def _show_final_statistics(self):
         """Display final simulation statistics"""
