@@ -188,22 +188,18 @@ class Simulator:
             if self.current_frame >= self.total_frames:
                 print("Simulation already completed!")
                 return
-            print(f"SPACE pressed - Advancing to frame {self.current_frame + 1}")
+            print(f"Advancing to frame {self.current_frame + 1}")
             self.advance_frame()
             
         elif event.key == 'q':  # Quit
-            print("Q pressed - Quitting simulation...")
+            print("Quitting simulation...")
             self.is_running = False
             plt.close()
             
         elif event.key == 'r':  # Reset (bonus feature)
-            print("R pressed - Resetting simulation...")
+            print("Resetting simulation...")
             self.current_frame = 0
             self._reset_simulation()
-            
-        else:
-            # Give feedback for other keys
-            print(f"Key '{event.key}' pressed. Use SPACE=Next, Q=Quit, R=Reset")
             
     def advance_frame(self):
             """Advance simulation by one frame"""
@@ -223,11 +219,11 @@ class Simulator:
             
             # Check completion
             if all(msg.is_completed for msg in self.messages.values()):
-                print(f"\nAll messages completed at frame {self.current_frame}!")
+                print(f"All messages completed at frame {self.current_frame}!")
                 self._show_final_statistics()
                 
             elif self.current_frame >= self.total_frames:
-                print(f"\nSimulation completed after {self.total_frames} frames!")
+                print(f"Simulation completed after {self.total_frames} frames!")
                 self._show_final_statistics()
 
     def _reset_simulation(self):
@@ -273,7 +269,6 @@ class Simulator:
                         'gray', linewidth=1, alpha=0.6, zorder=1)
         
         # Draw nodes with current colors
-        print(f"🎨 Drawing nodes with colors:")
         for node_id, node in self.network.nodes.items():
             pos = self.network.node_positions[node_id]
             color = node.get_display_color()
@@ -289,7 +284,6 @@ class Simulator:
                 border_circle = plt.Circle(pos, 0.15, fill=False, 
                                         edgecolor='pink', linewidth=4, zorder=4)
                 self.ax.add_patch(border_circle)
-                print(f"   🌸 Added pink collision border to node {node_id} ({color})")
             
             # Add node label
             self.ax.text(pos[0], pos[1], str(node_id), 
@@ -402,11 +396,6 @@ class Simulator:
             if legend_elements:
                 self.ax.legend(handles=legend_elements, loc='upper right', fontsize=9, 
                              frameon=True, fancybox=True, shadow=True)
-        
-        if transmission_count == 0:
-            print(f"   ✨ No SENDING nodes - screen should have NO colored lines!")
-        else:
-            print(f"   📡 Drawing {transmission_count} transmissions with message-specific colors")
 
     def draw_info_panel(self):
         """Draw simple, clean information panel"""
@@ -520,13 +509,13 @@ class Simulator:
         self.update_display()
         
         print("\n" + "="*50)
-        print("🎮 SIMULATION READY!")
+        print("SIMULATION READY!")
         print("="*50)
         print("Controls:")
         print("  SPACE: Advance to next frame")
         print("  Q: Quit simulation") 
         print("  R: Reset simulation")
-        print("\n👆 Click on the simulation window and press SPACE to begin!")
+        print("\nClick on the simulation window and press SPACE to begin!")
         print("="*50)
         
         # Keep the simulation running until user quits
@@ -546,9 +535,7 @@ class Simulator:
         
     def execute_frame(self):
             """Execute one simulation frame"""
-            print(f"\n{'='*50}")
-            print(f"EXECUTING FRAME {self.current_frame + 1}")  # Show next frame number
-            print(f"{'='*50}")
+            print(f"\n--- FRAME {self.current_frame + 1} START ---")
             
             # Reset all nodes FIRST (clear old SENDING status)
             for node_id, node in self.network.nodes.items():
@@ -573,9 +560,11 @@ class Simulator:
             # Advance to next frame
             self.current_frame += 1
             
+            print(f"--- FRAME {self.current_frame} END ---")
                 
     def _start_messages_for_frame(self):
         """Start messages that should begin this frame"""
+        started_messages = []
         for message in self.messages.values():
             if message.start_frame == (self.current_frame + 1) and not message.is_active:
                 message.start_transmission()
@@ -588,8 +577,12 @@ class Simulator:
                 initial_path = [message.source]
                 self.network.nodes[message.source].pending_messages.append((message, initial_path))
                 
-                print(f"🚀 Started message {message.id}: {message.source}→{message.target}")
-                print(f"    Hop limit: {message.hop_limit} | Current hops: {message.current_hops}")
+                started_messages.append(f"Message {message.id}: {message.source} -> {message.target}")
+        
+        if started_messages:
+            print("Messages started:")
+            for msg in started_messages:
+                print(f"  {msg}")
 
     def _update_frame_statistics(self):
         """Update statistics for current frame"""
@@ -614,51 +607,31 @@ class Simulator:
                 self.stats['total_collisions'] += collision_count
         
         # Count completed messages (but don't double count)
-        newly_completed = 0
+        newly_completed = []
         for message in self.messages.values():
             if message.is_completed and not hasattr(message, '_stats_counted'):
                 message._stats_counted = True  # Mark as counted
-                newly_completed += 1
+                newly_completed.append(message)
                 
                 # Use the message's own status
                 if message.get_status() == "SUCCESS":
                     self.stats['messages_reached_target'] += 1  # Success: target received
-                    print(f"      ✅ Message {message.id} SUCCESS: Target reached")
                 else:
                     self.stats['messages_hop_limit_exceeded'] += 1  # Failed: never reached target
-                    print(f"      ❌ Message {message.id} FAILED: Target never reached")
-                    
-        print(f"📊 Frame {self.current_frame} stats: Active={active_count}, Collisions={collision_count}, Completed={newly_completed}")
         
-        # Show current message status with hop limits
-        for msg_id, message in self.messages.items():
-            if message.is_active:
-                # Find current hop limits for this message
-                hop_limits = []
-                for node_id, node in self.network.nodes.items():
-                    for pending_item in node.pending_messages:
-                        if len(pending_item) >= 3:
-                            pending_msg, path, local_hop_limit = pending_item
-                            if pending_msg.id == message.id:
-                                hop_limits.append(local_hop_limit)
-                
-                status_info = f"(State: {message.get_state()})"
-                if hop_limits:
-                    min_hops = min(hop_limits)
-                    max_hops = max(hop_limits)
-                    if min_hops == max_hops:
-                        print(f"    Message {msg_id}: {min_hops}/{message.hop_limit} hops remaining {status_info}")
-                    else:
-                        print(f"    Message {msg_id}: {min_hops}-{max_hops}/{message.hop_limit} hops remaining {status_info}")
-                else:
-                    print(f"    Message {msg_id}: finishing up... {status_info}")
-            elif message.is_completed:
-                status = message.get_status()
-                print(f"    Message {msg_id}: COMPLETED (State: {message.get_state()}, Status: {status})")
+        # Print frame summary
+        if newly_completed:
+            print("Messages completed:")
+            for msg in newly_completed:
+                status = "SUCCESS" if msg.get_status() == "SUCCESS" else "FAILED"
+                print(f"  Message {msg.id}: {status}")
+        
+        if collision_count > 0:
+            print(f"Collisions detected: {collision_count}")
 
     def _check_stalled_messages(self):
         """Check for messages that have no pending copies and should be completed"""
-        print("🔍 Checking for stalled messages with no pending copies...")
+        stalled_messages = []
         
         for message in self.messages.values():
             if message.is_active and not message.is_completed:
@@ -676,17 +649,19 @@ class Simulator:
                         break
                 
                 if not has_pending:
-                    print(f"    🚫 Message {message.id} has no pending copies - COMPLETING as expired")
+                    stalled_messages.append(message)
                     message.complete_message("hop_limit_exceeded")
                     self._clear_message_status(message)
+        
+        if stalled_messages:
+            print("Stalled messages completed:")
+            for msg in stalled_messages:
+                print(f"  Message {msg.id}: No pending copies remaining")
 
     def _process_transmissions(self):
         """Process all message transmissions for this frame"""
-        print("Processing transmissions...")
-        
-        # CRITICAL FIX: Check for expired messages FIRST before any processing
-        print("🔍 Checking for expired messages with hop limit 0...")
-        expired_count = 0
+        # Check for expired messages FIRST before any processing
+        expired_messages = []
         
         for node_id, node in self.network.nodes.items():
             expired_indices = []
@@ -694,35 +669,36 @@ class Simulator:
                 if len(pending_item) >= 3:
                     message, path, local_hop_limit = pending_item
                     if local_hop_limit <= 0 and not message.is_completed:
-                        print(f"    🚫 Found expired message {message.id} at node {node_id} (hop_limit: {local_hop_limit})")
+                        expired_messages.append(message)
                         message.complete_message("hop_limit_exceeded")
                         self._clear_message_status(message)
                         expired_indices.append(i)
-                        expired_count += 1
                 elif len(pending_item) == 2:
                     # Handle old format
                     message, path = pending_item
                     hops_used = len(path) - 1
                     local_hop_limit = message.hop_limit - hops_used
                     if local_hop_limit <= 0 and not message.is_completed:
-                        print(f"    🚫 Found expired message {message.id} at node {node_id} (calculated hop_limit: {local_hop_limit})")
+                        expired_messages.append(message)
                         message.complete_message("hop_limit_exceeded")
                         self._clear_message_status(message)
                         expired_indices.append(i)
-                        expired_count += 1
             
             # Remove expired messages from pending (in reverse order to maintain indices)
             for i in reversed(expired_indices):
                 node.pending_messages.pop(i)
         
-        if expired_count > 0:
-            print(f"    ✅ Completed {expired_count} expired messages")
+        if expired_messages:
+            print("Expired messages:")
+            for msg in expired_messages:
+                print(f"  Message {msg.id}: Hop limit exceeded")
         
-        # NEW: Check for stalled messages with no pending copies
+        # Check for stalled messages with no pending copies
         self._check_stalled_messages()
         
         # Phase 1: All nodes send their pending messages
         transmission_queue = []  # List of (sender_id, receiver_id, message, path, hop_limit)
+        sending_nodes = []
         
         for sender_id, sender_node in self.network.nodes.items():
             if sender_node.pending_messages:
@@ -740,14 +716,11 @@ class Simulator:
                         message, current_path, local_hop_limit = pending_item
                     
                     if message.is_completed:
-                        print(f"    🚫 Removing completed msg {message.id} from node {sender_id}")
                         continue
                     elif not message.is_active:
-                        print(f"    🚫 Removing inactive msg {message.id} from node {sender_id}")
                         continue
                     elif local_hop_limit <= 0:
-                        print(f"    🚫 Message {message.id} hop limit reached (hop_limit: {local_hop_limit}) - COMPLETING")
-                        # CRITICAL FIX: Complete the message when hop limit is exhausted
+                        # Complete the message when hop limit is exhausted
                         if not message.is_completed:
                             message.complete_message("hop_limit_exceeded")
                             self._clear_message_status(message)
@@ -761,10 +734,6 @@ class Simulator:
                 has_transmissions = False
                 
                 for message, current_path, local_hop_limit in sender_node.pending_messages:
-                    print(f"    📤 Processing msg {message.id} from node {sender_id}")
-                    print(f"       Current path: {' → '.join(map(str, current_path))}")
-                    print(f"       Local hop limit: {local_hop_limit}")
-                    
                     valid_neighbors = []
                     
                     for neighbor_id in sender_node.neighbors:
@@ -780,16 +749,19 @@ class Simulator:
                         
                         for neighbor_id in valid_neighbors:
                             transmission_queue.append((sender_id, neighbor_id, message, current_path, local_hop_limit))
-                    
+                
                 # Mark as SENDING if node has any transmissions (for drawing lines)
                 if has_transmissions:
                     sender_node.set_sending()
+                    sending_nodes.append(sender_id)
                 
                 sender_node.pending_messages.clear()
         
         # STORE transmission queue for drawing
         self._current_transmissions = transmission_queue
         
+        if sending_nodes:
+            print(f"Transmissions from nodes: {sending_nodes}")
         
         # CRITICAL: Detect collisions BEFORE processing
         # Group transmissions by receiver to detect collisions
@@ -807,9 +779,7 @@ class Simulator:
                 collision_nodes.add(receiver_id)
                 sender_list = [sender_id for sender_id, _, _, _ in transmissions]
                 message_list = [message.id for _, message, _, _ in transmissions]
-                print(f"   💥 COLLISION detected at node {receiver_id}!")
-                print(f"      Senders: {sender_list}")
-                print(f"      Messages: {message_list}")
+                print(f"COLLISION at node {receiver_id} from nodes {sender_list} (messages {message_list})")
                 
                 # Mark receiver as having collision
                 self.network.nodes[receiver_id].set_collision()
@@ -822,19 +792,22 @@ class Simulator:
             
             if receiver_id in collision_nodes:
                 # This receiver has collision - reject ALL messages
-                print(f"   💥 COLLISION: {sender_id} → {receiver_id} (msg {message.id}) - BLOCKED by collision")
+                pass  # No print needed for blocked transmissions
             else:
                 # No collision - try to receive normally
                 accepted = receiver_node.receive_message_copy(message, sender_id, sender_path)
                 
                 if accepted:
                     successful_receives.append((sender_id, receiver_id, message.id))
-                    print(f"   ✅ ACCEPTED: {sender_id} → {receiver_id} (msg {message.id})")
-                else:
-                    print(f"   ❌ REJECTED: {sender_id} → {receiver_id} (msg {message.id}) - already seen")
+        
+        if successful_receives:
+            print("Successful transmissions:")
+            for sender_id, receiver_id, msg_id in successful_receives:
+                print(f"  {sender_id} -> {receiver_id} (Message {msg_id})")
         
         # Phase 3: Process received messages and mark receiving nodes
         completed_messages_this_frame = []
+        receiving_nodes = []
         
         for node_id, node in self.network.nodes.items():
             if node_id in collision_nodes:
@@ -847,8 +820,7 @@ class Simulator:
                 # Mark as RECEIVING (orange) if not source/target
                 if not node.status_flags[node.STATUS_SOURCE] and not node.status_flags[node.STATUS_TARGET]:
                     node.set_receiving()
-                else:
-                    print(f"    📝 Node {node_id} received message but stays {node.get_display_color()} (source/target priority)")
+                    receiving_nodes.append(node_id)
                 
                 # Process the received messages
                 processed = node.process_received_messages()
@@ -858,8 +830,9 @@ class Simulator:
                         completed_messages_this_frame.append(message)
                         # IMMEDIATE CLEANUP when message completes
                         self._clear_message_status(message)
-                    else:
-                        remaining_hops = message.hop_limit - len(path) + 1
+        
+        if receiving_nodes:
+            print(f"Receiving nodes: {receiving_nodes}")
         
         self.completed_this_frame = completed_messages_this_frame                 
    
@@ -869,12 +842,8 @@ class Simulator:
         target_id = completed_message.target
         message_id = completed_message.id
         
-        print(f"   🧹 Clearing status for completed message {message_id} ({source_id}→{target_id})")
-        
         # Remove this message from ALL nodes' pending_messages
         for node_id, node in self.network.nodes.items():
-            original_count = len(node.pending_messages)
-            
             # CRITICAL FIX: Handle both old format (msg, path) and new format (msg, path, hop_limit)
             new_pending = []
             for pending_item in node.pending_messages:
@@ -888,11 +857,8 @@ class Simulator:
                         new_pending.append(pending_item)
                         
             node.pending_messages = new_pending
-            removed_count = original_count - len(node.pending_messages)
-            if removed_count > 0:
-                print(f"     ↳ Removed {removed_count} copies of msg {message_id} from node {node_id}")
         
-        # CRITICAL: Check if source has OTHER active messages
+        # Check if source has OTHER active messages
         source_has_other_active = any(
             msg.is_active and not msg.is_completed and msg.source == source_id 
             for msg in self.messages.values() 
@@ -900,11 +866,8 @@ class Simulator:
         )
         if not source_has_other_active:
             self.network.nodes[source_id].set_as_source(False)
-            print(f"     ↳ Node {source_id} no longer GREEN (no other active messages as source)")
-        else:
-            print(f"     ↳ Node {source_id} stays GREEN (has other active messages as source)")
             
-        # CRITICAL: Check if target has OTHER active messages
+        # Check if target has OTHER active messages
         target_has_other_active = any(
             msg.is_active and not msg.is_completed and msg.target == target_id 
             for msg in self.messages.values() 
@@ -912,9 +875,6 @@ class Simulator:
         )
         if not target_has_other_active:
             self.network.nodes[target_id].set_as_target(False)
-            print(f"     ↳ Node {target_id} no longer RED (no other active messages as target)")
-        else:
-            print(f"     ↳ Node {target_id} stays RED (has other active messages as target)")
 
     def _show_final_statistics(self):
         """Display final simulation statistics"""
