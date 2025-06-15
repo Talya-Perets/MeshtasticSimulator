@@ -373,9 +373,9 @@ class Simulator:
             if legend_elements:
                 self.ax.legend(handles=legend_elements, loc='upper right', fontsize=9, 
                             frameon=True, fancybox=True, shadow=True)     
-   
+    
     def draw_info_panel(self):
-        """Draw simple, clean information panel"""
+        """Draw clean information panel with 10-message limits"""
         self.info_ax.clear()
         self.info_ax.set_title(f"Messages & Statistics - Frame {self.current_frame}/{self.total_frames}", fontsize=12, fontweight='bold')
         self.info_ax.axis('off')
@@ -394,78 +394,82 @@ class Simulator:
             y = add_text("-" * len(title), y-0.015, fontsize=10)
             return y - 0.01
         
-        # ALL MESSAGES
+        # ALL MESSAGES (limit to 7 first active)
         y_pos = add_header("ALL MESSAGES", y_pos)
         
-        # Sort messages by start frame, then by message ID
-        sorted_messages = sorted(self.messages.items(), key=lambda x: (x[1].start_frame, x[0]))
+        # Sort all non-completed messages by start frame, then by message ID
+        all_messages = [(msg_id, msg) for msg_id, msg in self.messages.items() if not msg.is_completed]
+        sorted_messages = sorted(all_messages, key=lambda x: (x[1].start_frame, x[0]))
         
-        for msg_id, message in sorted_messages:
-            if not message.is_completed:
-                # Show basic message info
-                y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} (Start: Frame {message.start_frame})", 
-                            y_pos)
+        # Show first 7 messages (earliest)
+        recent_messages = sorted_messages[:7] if len(sorted_messages) > 7 else sorted_messages
+        
+        for msg_id, message in recent_messages:
+            # Show basic message info
+            y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} (Start: Frame {message.start_frame})", 
+                        y_pos)
+            
+            # Show hop limit if message is active
+            if message.is_active:
+                # Calculate current hop limit
+                current_min_hops = "?"
+                min_hops_found = []
                 
-                # Show hop limit if message is active
-                if message.is_active:
-                    # Calculate current hop limit
-                    current_min_hops = "?"
-                    min_hops_found = []
-                    
-                    for node_id, node in self.network.nodes.items():
-                        for pending_item in node.pending_messages:
-                            if len(pending_item) >= 3:
-                                pending_msg, path, local_hop_limit = pending_item
-                                if pending_msg.id == message.id:
-                                    min_hops_found.append(local_hop_limit)
-                    
-                    if min_hops_found:
-                        current_min_hops = min(min_hops_found)
-                    else:
-                        current_min_hops = 0
-                    
-                    y_pos = add_text(f"  Hop Limit: {current_min_hops}/{message.hop_limit}", y_pos, fontsize=9)
+                for node_id, node in self.network.nodes.items():
+                    for pending_item in node.pending_messages:
+                        if len(pending_item) >= 3:
+                            pending_msg, path, local_hop_limit = pending_item
+                            if pending_msg.id == message.id:
+                                min_hops_found.append(local_hop_limit)
                 
-                y_pos -= 0.01
+                if min_hops_found:
+                    current_min_hops = min(min_hops_found)
+                else:
+                    current_min_hops = 0
+                
+                y_pos = add_text(f"  Hop Limit: {current_min_hops}/{message.hop_limit}", y_pos, fontsize=9)
+            
+            y_pos -= 0.01
+        
+        # Show count if there are more messages
+        if len(sorted_messages) > 7:
+            y_pos = add_text(f"... and {len(sorted_messages) - 7} more messages", y_pos, fontsize=9, color='gray')
         
         y_pos -= 0.02
         
-        # COMPLETED MESSAGES
+        # COMPLETED MESSAGES (limit to 10 most recent)
         y_pos = add_header("COMPLETED MESSAGES", y_pos)
         
         completed_found = False
         # Sort completed messages by message ID
-        sorted_completed = sorted([(msg_id, msg) for msg_id, msg in self.messages.items() if msg.is_completed])
+        completed_messages = [(msg_id, msg) for msg_id, msg in self.messages.items() if msg.is_completed]
+        sorted_completed = sorted(completed_messages, key=lambda x: x[0])  # Sort by message ID
         
-        for msg_id, message in sorted_completed:
-                completed_found = True
-                
-                # Use the message's own status
-                status = message.get_status()
-                
-                if status == "SUCCESS":
-                    y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - SUCCESS", 
-                                y_pos, color='green', weight='bold')
-                else:
-                    y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - FAILED", 
-                                y_pos, color='red', weight='bold')
-                
-                y_pos -= 0.01
+        # Show last 7 completed messages
+        recent_completed = sorted_completed[-7:] if len(sorted_completed) > 7 else sorted_completed
+        
+        for msg_id, message in recent_completed:
+            completed_found = True
+            
+            # Use the message's own status
+            status = message.get_status()
+            
+            if status == "SUCCESS":
+                y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - SUCCESS", 
+                            y_pos, color='green', weight='bold')
+            else:
+                y_pos = add_text(f"Message {msg_id}: {message.source} -> {message.target} - FAILED", 
+                            y_pos, color='red', weight='bold')
+            
+            y_pos -= 0.01
         
         if not completed_found:
             y_pos = add_text("None", y_pos)
+        elif len(sorted_completed) > 7:
+            y_pos = add_text(f"... and {len(sorted_completed) - 7} more completed", y_pos, fontsize=9, color='gray')
         
         y_pos -= 0.02
-        
-        # Simple collision info
-        current_collisions = sum(1 for node in self.network.nodes.values() 
-                            if node.status_flags[node.STATUS_COLLISION])
-        
-        if current_collisions > 0:
-            y_pos = add_header("COLLISIONS", y_pos)
-            y_pos = add_text(f"Collisions this frame: {current_collisions}", y_pos)   
-
-
+    
     def update_display(self):
         """Update the complete display"""
         self.draw_network()
