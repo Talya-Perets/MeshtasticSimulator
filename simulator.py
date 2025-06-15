@@ -282,7 +282,7 @@ class Simulator:
                 (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
                 # Draw pink border around the node
                 border_circle = plt.Circle(pos, 0.15, fill=False, 
-                                        edgecolor='pink', linewidth=4, zorder=4)
+                                        edgecolor='pink', linewidth=3, zorder=4)
                 self.ax.add_patch(border_circle)
             
             # Add node label
@@ -559,9 +559,32 @@ class Simulator:
             
             # Advance to next frame
             self.current_frame += 1
+
+            self._print_all_routing_tables()
             
             print(f"--- FRAME {self.current_frame} END ---")
-                
+
+    def _print_all_routing_tables(self):
+        """Print routing tables for all nodes at end of frame"""
+        print(f"\n📋 ROUTING TABLES - End of Frame {self.current_frame}:")
+        print("=" * 50)
+        
+        for node_id in sorted(self.network.nodes.keys()):
+            node = self.network.nodes[node_id]
+            print(f"\nNode {node_id}:")
+            
+            if not node.routing_table:
+                print("  (empty)")
+            else:
+                for destination in sorted(node.routing_table.keys()):
+                    routes = node.routing_table[destination]
+                    print(f"  To reach {destination}:")
+                    for next_hop in sorted(routes.keys()):
+                        info = routes[next_hop]
+                        print(f"    via {next_hop} → distance {info['distance']}")
+        
+        print("=" * 50)
+
     def _start_messages_for_frame(self):
         """Start messages that should begin this frame"""
         started_messages = []
@@ -736,13 +759,16 @@ class Simulator:
                 for message, current_path, local_hop_limit in sender_node.pending_messages:
                     valid_neighbors = []
                     
-                    for neighbor_id in sender_node.neighbors:
-                        # Only skip immediate ping-pong
-                        if len(current_path) > 1 and neighbor_id == current_path[-2]:
-                            continue
-                        
+                   # NEW: Use routing decision instead of flooding to all neighbors
+                    valid_neighbors = sender_node.get_routing_decision(message, local_hop_limit)
+
+                    # Remove ping-pong (sender from last hop)
+                    if len(current_path) > 1:
+                        sender_from_last_hop = current_path[-2]
+                        if sender_from_last_hop in valid_neighbors:
+                            valid_neighbors.remove(sender_from_last_hop)
+                            print(f"      ⏪ Skipping ping-pong back to {sender_from_last_hop}")
                         # Send to all other neighbors
-                        valid_neighbors.append(neighbor_id)
                     
                     if valid_neighbors:
                         has_transmissions = True
@@ -823,8 +849,7 @@ class Simulator:
                     receiving_nodes.append(node_id)
                 
                 # Process the received messages
-                processed = node.process_received_messages()
-                
+                processed = node.process_received_messages(self.current_frame)                
                 for message, path in processed:
                     if message.is_completed:
                         completed_messages_this_frame.append(message)
@@ -833,6 +858,8 @@ class Simulator:
         
         if receiving_nodes:
             print(f"Receiving nodes: {receiving_nodes}")
+        for node_id in receiving_nodes:
+            self.network.nodes[node_id].print_routing_table()
         
         self.completed_this_frame = completed_messages_this_frame                 
    

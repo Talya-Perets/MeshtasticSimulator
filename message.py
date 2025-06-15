@@ -44,28 +44,27 @@ class Message:
         """Decrease hop count by 1"""
         self.current_hops -= 1
         
+    
     def target_reached(self):
-        """Mark that target has received the message - change status to SUCCESS"""
+        """Mark that target has received the message - but DON'T complete yet"""
         self.target_received = True
-        self.status = "SUCCESS"  # Change status to SUCCESS
-        print(f"      🎯 Message {self.id} TARGET REACHED - Status changed to SUCCESS")
-        
+        # DON'T change status here - only when message completes
+        print(f"      🎯 Message {self.id} target reached - flooding continues")
+
     def complete_message(self, reason):
         """Mark message as completed"""
-        if reason == "reached_target":
-            # Target reached - mark as received but complete immediately
-            self.target_received = True
-            self.is_completed = True
-            self.is_active = False
-            self.completion_reason = reason
-            print(f"      🎯 Message {self.id} COMPLETED: TARGET REACHED!")
-        elif reason == "hop_limit_exceeded":
-            # Hop limit exceeded - complete
-            self.is_completed = True
-            self.is_active = False
-            self.completion_reason = reason
-            print(f"      🛑 Message {self.id} COMPLETED: HOP LIMIT EXCEEDED")
-            
+        self.is_completed = True
+        self.is_active = False
+        self.completion_reason = reason
+        
+        # Determine final status based on whether target was reached
+        if self.target_received:
+            self.status = "SUCCESS"  # Target was reached during flooding
+            print(f"      ✅ Message {self.id} COMPLETED: SUCCESS (target reached during flooding)")
+        else:
+            self.status = "FAILED"   # Target never reached
+            print(f"      ❌ Message {self.id} COMPLETED: FAILED (target never reached)")      
+        
     def get_state(self):
         """Get current state of the message"""
         if self.is_completed:

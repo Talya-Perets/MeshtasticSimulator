@@ -19,7 +19,7 @@ class Network:
         
         self.space_size = space_size
         self.communication_radius = 0
-        self.target_avg_neighbors = 4
+        self.target_avg_neighbors = 3
         self.radius_variation = 0.1
         
     def set_transmission_radius(self, radius, variation=0.1):
