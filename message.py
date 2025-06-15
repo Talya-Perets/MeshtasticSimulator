@@ -14,8 +14,7 @@ class Message:
         
         # Better random start frame distribution
         # Start between frame 1 and 2/3 of total frames (give more time to complete)
-        max_start_frame = max(1, int(total_frames * 0.67))  # Use 2/3 of total frames
-        self.start_frame = random.randint(1, max_start_frame)
+        self.start_frame = random.randint(1, total_frames-4)
         
         # Current hop count (starts at hop_limit)
         self.current_hops = self.hop_limit
