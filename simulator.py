@@ -303,79 +303,56 @@ class Simulator:
         self.ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
 
 
-        
     def _draw_active_transmissions(self):
-        """Draw lines for ALL neighbors that senders are transmitting to - with different colors per message"""
+        """Draw lines for actual transmissions happening this frame - with different colors per message"""
         transmission_count = 0
         
         # Define colors for different messages (cycle through if more messages than colors)
         message_colors = ['orange', 'purple', 'brown', 'blue', 'cyan', 'green', 'magenta', 'red']
         
-        # We need to track what messages each SENDING node is transmitting
-        # Since pending_messages is cleared, we need to get this info from the transmission queue
-        
-        # Draw lines from all SENDING nodes to ALL their neighbors
-        for node_id, node in self.network.nodes.items():
-            if node.status_flags[node.STATUS_SENDING] == True:
-                sender_pos = self.network.node_positions[node_id]
+        # Draw lines based on ACTUAL transmissions in the queue
+        if hasattr(self, '_current_transmissions') and self._current_transmissions:
+            for sender_id, receiver_id, message, sender_path, hop_limit in self._current_transmissions:
+                sender_pos = self.network.node_positions[sender_id]
+                receiver_pos = self.network.node_positions[receiver_id]
                 
-                # Get messages this node is sending from the stored transmission info
-                messages_from_node = {}
-                if hasattr(self, '_current_transmissions'):
-                    for sender_id, receiver_id, message, sender_path, hop_limit in self._current_transmissions:
-                        if sender_id == node_id:
-                            if message.id not in messages_from_node:
-                                messages_from_node[message.id] = message
+                # Get color for this message (cycle through colors)
+                color = message_colors[message.id % len(message_colors)]
                 
-                # If no stored transmissions, use all active messages (fallback)
-                if not messages_from_node:
-                    for message in self.messages.values():
-                        if message.is_active and not message.is_completed:
-                            messages_from_node[message.id] = message
+                # Calculate line positions (with small offset for multiple messages)
+                dx = receiver_pos[0] - sender_pos[0]
+                dy = receiver_pos[1] - sender_pos[1]
+                length = math.sqrt(dx*dx + dy*dy)
                 
-                # Draw lines to ALL neighbors for each message with its color
-                for neighbor_id in node.neighbors:
-                    neighbor_pos = self.network.node_positions[neighbor_id]
+                if length > 0:
+                    # Small offset for multiple messages on same link
+                    offset = (message.id % 3 - 1) * 0.02  # -0.02, 0, 0.02
                     
-                    # Draw a line for each message this node is sending
-                    for message_id, message in messages_from_node.items():
-                        # Get color for this message (cycle through colors)
-                        color = message_colors[message_id % len(message_colors)]
-                        
-                        # Offset lines slightly so multiple messages are visible
-                        offset = (message_id - len(messages_from_node)/2) * 0.02
-                        
-                        # Calculate offset perpendicular to the line
-                        dx = neighbor_pos[0] - sender_pos[0]
-                        dy = neighbor_pos[1] - sender_pos[1]
-                        length = math.sqrt(dx*dx + dy*dy)
-                        
-                        if length > 0:
-                            # Perpendicular offset
-                            perp_x = -dy / length * offset
-                            perp_y = dx / length * offset
-                            
-                            start_x = sender_pos[0] + perp_x
-                            start_y = sender_pos[1] + perp_y
-                            end_x = neighbor_pos[0] + perp_x
-                            end_y = neighbor_pos[1] + perp_y
-                            
-                            # Draw transmission line with message-specific color and THICKER line
-                            self.ax.plot([start_x, end_x], [start_y, end_y], 
-                                    color=color, linewidth=2.5, alpha=0.9, zorder=2)
-                            
-                            # Add BIGGER and THICKER arrow to show direction
-                            dx_norm = dx / length * 0.25  # Bigger arrow
-                            dy_norm = dy / length * 0.25
-                            
-                            arrow_x = end_x - dx_norm
-                            arrow_y = end_y - dy_norm
-                            
-                            self.ax.annotate('', xy=(end_x, end_y), xytext=(arrow_x, arrow_y),
-                                        arrowprops=dict(arrowstyle='->', color=color, 
-                                                        lw=3, alpha=0.9, shrinkA=0, shrinkB=0), zorder=2)
-                            
-                            transmission_count += 1
+                    # Perpendicular offset
+                    perp_x = -dy / length * offset
+                    perp_y = dx / length * offset
+                    
+                    start_x = sender_pos[0] + perp_x
+                    start_y = sender_pos[1] + perp_y
+                    end_x = receiver_pos[0] + perp_x
+                    end_y = receiver_pos[1] + perp_y
+                    
+                    # Draw transmission line with message-specific color and THICK line
+                    self.ax.plot([start_x, end_x], [start_y, end_y], 
+                            color=color, linewidth=2.5, alpha=0.9, zorder=2)
+                    
+                    # Add arrow to show direction
+                    dx_norm = dx / length * 0.25  # Arrow size
+                    dy_norm = dy / length * 0.25
+                    
+                    arrow_x = end_x - dx_norm
+                    arrow_y = end_y - dy_norm
+                    
+                    self.ax.annotate('', xy=(end_x, end_y), xytext=(arrow_x, arrow_y),
+                                arrowprops=dict(arrowstyle='->', color=color, 
+                                                lw=3, alpha=0.9, shrinkA=0, shrinkB=0), zorder=2)
+                    
+                    transmission_count += 1
         
         # Add legend if there are transmissions
         if transmission_count > 0:
@@ -395,8 +372,8 @@ class Simulator:
             
             if legend_elements:
                 self.ax.legend(handles=legend_elements, loc='upper right', fontsize=9, 
-                             frameon=True, fancybox=True, shadow=True)
-
+                            frameon=True, fancybox=True, shadow=True)     
+   
     def draw_info_panel(self):
         """Draw simple, clean information panel"""
         self.info_ax.clear()
