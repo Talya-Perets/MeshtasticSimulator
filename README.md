@@ -85,8 +85,9 @@ Entry point that handles user input for simulation parameters and launches the s
 
 ## Contributors
 
--Hagit Dahan
+-Hagit Dahan 315158568
 -Talya Perets 322353780
+-Ido Avraham 208699181
 
 ## Repository
 
