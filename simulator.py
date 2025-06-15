@@ -272,11 +272,21 @@ class Simulator:
         for node_id, node in self.network.nodes.items():
             pos = self.network.node_positions[node_id]
             color = node.get_display_color()
-            
             # Draw node circle
             circle = plt.Circle(pos, 0.15, color=color, zorder=3)
             self.ax.add_patch(circle)
-            
+          
+            if (node.status_flags[node.STATUS_RECEIVING]):
+                print(f"node {node_id} is resv")
+            if (node.status_flags[node.STATUS_RECEIVING] and 
+                (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
+                # Draw pink border around the node
+                print("in line orange")
+                border_circle = plt.Circle(pos, 0.15, fill=False, 
+                                        edgecolor='orange', linewidth=3, zorder=4)
+                self.ax.add_patch(border_circle)
+
+
             # NEW: Add pink border if collision AND (source OR target)
             if (node.status_flags[node.STATUS_COLLISION] and 
                 (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
@@ -308,7 +318,7 @@ class Simulator:
         transmission_count = 0
         
         # Define colors for different messages (cycle through if more messages than colors)
-        message_colors = ['orange', 'purple', 'brown', 'blue', 'cyan', 'green', 'magenta', 'red']
+        message_colors = [ 'purple', 'brown', 'blue', 'cyan', 'green', 'magenta', 'red']
         
         # Draw lines based on ACTUAL transmissions in the queue
         if hasattr(self, '_current_transmissions') and self._current_transmissions:
@@ -825,9 +835,9 @@ class Simulator:
             if node.received_messages:
                 
                 # Mark as RECEIVING (orange) if not source/target
-                if not node.status_flags[node.STATUS_SOURCE] and not node.status_flags[node.STATUS_TARGET]:
-                    node.set_receiving()
-                    receiving_nodes.append(node_id)
+              
+                node.set_receiving()
+                receiving_nodes.append(node_id)
                 
                 # Process the received messages
                 processed = node.process_received_messages(self.current_frame)                
@@ -835,7 +845,7 @@ class Simulator:
                     if message.is_completed:
                         completed_messages_this_frame.append(message)
                         # IMMEDIATE CLEANUP when message completes
-                        self._clear_message_status(message)
+                        #self._clear_message_status(message)
         
         if receiving_nodes:
             print(f"Receiving nodes: {receiving_nodes}")

@@ -70,8 +70,7 @@ class Node:
         
     def set_receiving(self):
         """Mark node as receiving a message this frame"""
-        if not self.status_flags[self.STATUS_SOURCE] and not self.status_flags[self.STATUS_TARGET]:
-            self.status_flags[self.STATUS_RECEIVING] = True
+        self.status_flags[self.STATUS_RECEIVING] = True
        
     def receive_message_copy(self, message, sender_id, sender_path):
         """Receive a specific copy of a message with its path"""
