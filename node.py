@@ -41,8 +41,6 @@ class Node:
         self.routing_table = {}  # {destination: {next_hop: {'distance': int, 'last_updated': frame}}}
         self.learned_routes = {}  # Legacy - keep for compatibility
         
-    # ... (all existing methods stay the same) ...
-    
     def reset_frame_status(self):
         """Reset status flags that change each frame"""
         self.status_flags[self.STATUS_COLLISION] = False
@@ -100,7 +98,7 @@ class Node:
         return True
 
     def get_routing_decision(self, message, hop_limit_remaining):
-        """Decide which neighbors to send to based on routing table"""
+        """Decide which neighbors to send to based on routing table - SEND TO ALL VALID ROUTES"""
         target = message.target
         
         print(f"📋 Node {self.id} routing decision for Message {message.id} (target: {target}):")
@@ -111,7 +109,7 @@ class Node:
             print(f"   ❓ No routes to destination {target} → fallback to FLOODING")
             return list(self.neighbors)  # Fallback to flooding
         
-        # Analyze available routes to the TARGET
+        # Analyze available routes to the TARGET - SEND TO ALL VALID ROUTES
         print(f"   Checking routes to target {target}:")
         valid_neighbors = []
         
@@ -133,33 +131,41 @@ class Node:
         print(f"   ✅ Decision: Send to neighbors {valid_neighbors}")
         return valid_neighbors
 
- 
     def learn_route_from_message(self, message_source, path, current_frame):
-        """Learn routing information from received message"""
+        """Learn routing information from received message with BIDIRECTIONAL LEARNING"""
         if len(path) < 2:
             return  # No routing info to learn
-            
-        # The distance from me to the message source
-        distance_to_source = len(path) - 1  # path includes me, so subtract 1
         
-        # The next hop to reach the source (the node that sent me this message)
-        next_hop_to_source = path[-2]  # Second to last in path (the sender)
+        # Find my position in the path
+        try:
+            my_index = path.index(self.id)
+        except ValueError:
+            print(f"      ⚠️ Node {self.id} not found in path {path}")
+            return
         
-        # Update routing table
-        if message_source not in self.routing_table:
-            self.routing_table[message_source] = {}
+        print(f"      🧠 Node {self.id} learning from path: {' → '.join(map(str, path))}")
+        
+        # Learn routes to ALL nodes that appeared BEFORE me in the path
+        for i in range(my_index):
+            target_node = path[i]
+            distance_to_target = my_index - i
+            next_hop_to_target = path[my_index - 1]  # The node that sent me this message
             
-        # Check if this is a better route
-        current_best = None
-        if next_hop_to_source in self.routing_table[message_source]:
-            current_best = self.routing_table[message_source][next_hop_to_source]
+            # Update routing table for this target
+            if target_node not in self.routing_table:
+                self.routing_table[target_node] = {}
             
-        if current_best is None or distance_to_source < current_best['distance']:
-            self.routing_table[message_source][next_hop_to_source] = {
-                'distance': distance_to_source,
-                'last_updated': current_frame
-            }
-            print(f"      🧠 Node {self.id} learned: to reach {message_source}, go via {next_hop_to_source} (distance {distance_to_source} hops)")
+            # Check if this is a better or new route
+            current_best = None
+            if next_hop_to_target in self.routing_table[target_node]:
+                current_best = self.routing_table[target_node][next_hop_to_target]
+            
+            if current_best is None or distance_to_target < current_best['distance']:
+                self.routing_table[target_node][next_hop_to_target] = {
+                    'distance': distance_to_target,
+                    'last_updated': current_frame
+                }
+                print(f"         📝 Learned: to reach {target_node}, go via {next_hop_to_target} (distance {distance_to_target} hops)")
 
     def get_best_next_hops(self, destination):
         """Get the best next hops for a destination based on routing table"""
@@ -203,7 +209,7 @@ class Node:
             # Create new path
             new_path = message.create_new_copy(sender_id, self.id, sender_path)
             
-            # LEARN ROUTING: Update routing table from this message
+            # LEARN ROUTING: Update routing table from this message (BIDIRECTIONAL)
             self.learn_route_from_message(message.source, new_path, current_frame)
             
             # Calculate hop limit
