@@ -55,6 +55,16 @@ class Network:
             x = grid_x * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
             y = grid_y * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
             
+
+            # x_offset = random.uniform(0, cell_size * 0.8)
+            # y_offset = random.uniform(0, cell_size * 0.8)
+
+            # print(f"[Node {i}] x_offset = {x_offset}, y_offset = {y_offset}")
+
+            # x = grid_x * cell_size + x_offset + cell_size * 0.1
+            # y = grid_y * cell_size + y_offset + cell_size * 0.1
+
+
             # Keep within bounds
             x = min(max(x, 0), self.space_size)
             y = min(max(y, 0), self.space_size)
@@ -199,6 +209,7 @@ class Network:
             
             # Small random variation in radius
             variation = random.uniform(-self.radius_variation, self.radius_variation)
+            # print(f"[Node {i}] variation = {variation}")
             node_radius = self.communication_radius * (1 + variation)
             
             for j in self.nodes:
