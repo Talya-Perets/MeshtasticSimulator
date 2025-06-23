@@ -2,7 +2,7 @@ class Node:
     """
     Represents a node in the network
     Each node has status, position, and message handling capabilities
-    Now with Tree Building capabilities instead of routing tables
+    Now with Tree Building capabilities and Tree-Based Routing
     """
     
     # Node status constants
@@ -95,17 +95,129 @@ class Node:
         
         return True
 
-    def get_routing_decision(self, message, hop_limit_remaining):
-        """PURE FLOODING - always send to all neighbors (no routing table decision)"""
-        print(f"📋 Node {self.id} flooding decision for Message {message.id} (target: {message.target}):")
+    def get_routing_decision(self, message, hop_limit_remaining, algorithm_mode="flooding"):
+        """Routing decision based on selected algorithm"""
+        source = message.source
+        target = message.target
+        
+        # FIRST CHECK: If I'm the target, never forward (for both algorithms)
+        if target == self.id:
+            if algorithm_mode == "flooding":
+                print(f"📋 Node {self.id} flooding decision for Message {message.id} ({source}→{target}):")
+                print(f"   🎯 I AM THE TARGET - not forwarding")
+            else:
+                print(f"📋 Node {self.id} tree-based decision for Message {message.id} ({source}→{target}):")
+                print(f"   🎯 I AM THE TARGET - not forwarding")
+            return []
+        
+        if algorithm_mode == "flooding":
+            return self._flooding_decision(message, hop_limit_remaining)
+        else:
+            return self._tree_based_decision(message, hop_limit_remaining)
+    
+    def _flooding_decision(self, message, hop_limit_remaining):
+        """FLOODING ALGORITHM: Send to all neighbors (except if I'm target)"""
+        source = message.source
+        target = message.target
+        
+        print(f"📋 Node {self.id} flooding decision for Message {message.id} ({source}→{target}):")
         print(f"   Hop limit remaining: {hop_limit_remaining}")
         print(f"   ✅ Decision: PURE FLOODING to all neighbors {list(self.neighbors)}")
         
         # Always return all neighbors - pure flooding
         return list(self.neighbors)
+    
+    def _tree_based_decision(self, message, hop_limit_remaining):
+        """TREE-BASED ALGORITHM: Use knowledge tree for smart routing"""
+        source = message.source
+        target = message.target
+        
+        print(f"📋 Node {self.id} tree-based decision for Message {message.id} ({source}→{target}):")
+        print(f"   Hop limit remaining: {hop_limit_remaining}")
+        
+        # Check if both source and target are in my knowledge tree
+        source_in_tree = source in self.knowledge_tree
+        target_in_tree = target in self.knowledge_tree
+        
+        print(f"   Source {source} in tree: {source_in_tree}")
+        print(f"   Target {target} in tree: {target_in_tree}")
+        
+        # If I don't know about both source and target, flood to all neighbors
+        if not (source_in_tree and target_in_tree):
+            print(f"   ✅ Decision: FLOOD (missing knowledge) to all neighbors {list(self.neighbors)}")
+            return list(self.neighbors)
+        
+        # Both source and target are in my tree - check if they're in same subtree
+        print(f"   Both source and target known - checking subtrees...")
+        
+        # Check if source and target are in the same subtree
+        if self._are_in_same_subtree(source, target):
+            print(f"   🚫 Decision: DON'T SEND - source and target in same subtree")
+            print(f"      → There's a path {source}→{target} that doesn't go through me")
+            return []  # Don't send to anyone
+        else:
+            # They're in different subtrees - flood to all neighbors
+            print(f"   ✅ Decision: FLOOD (different subtrees) to all neighbors {list(self.neighbors)}")
+            return list(self.neighbors)
+
+    def _are_in_same_subtree(self, source, target):
+        """Check if source and target are in the same subtree"""
+        
+        # Get all my direct children in the tree
+        my_direct_children = self._get_direct_children()
+        
+        print(f"      My direct children: {my_direct_children}")
+        
+        # Check each subtree - if ANY subtree contains both source and target, return True
+        for child in my_direct_children:
+            source_in_subtree = self._is_in_subtree(source, child)
+            target_in_subtree = self._is_in_subtree(target, child)
+            
+            print(f"      Child {child}: source({source})={source_in_subtree}, target({target})={target_in_subtree}")
+            
+            if source_in_subtree and target_in_subtree:
+                print(f"      ✅ Both source and target found in subtree of child {child}")
+                return True
+        
+        print(f"      ❌ No single subtree contains both source and target")
+        return False
+
+    def _get_direct_children(self):
+        """Get all direct children of this node in the knowledge tree"""
+        direct_children = []
+        for dest, info in self.knowledge_tree.items():
+            if info['parent'] == self.id:
+                direct_children.append(dest)
+        return direct_children
+
+    def _is_in_subtree(self, node, subtree_root):
+        """Check if a node is in the subtree rooted at subtree_root"""
+        if node == subtree_root:
+            return True
+        
+        # Check if node exists in tree and its path goes through subtree_root
+        if node not in self.knowledge_tree:
+            return False
+        
+        # Follow the path from node back to me - if it goes through subtree_root, it's in that subtree
+        current = node
+        while current != self.id:
+            if current == subtree_root:
+                return True
+            
+            if current not in self.knowledge_tree:
+                return False
+                
+            current = self.knowledge_tree[current]['parent']
+            
+            # Safety check
+            if current == node:  # Avoid infinite loops
+                break
+        
+        return False
 
     def build_knowledge_tree_from_message(self, message_source, path, current_frame):
-        """Build knowledge tree from received message path - representing the full path structure"""
+        """Build knowledge tree from received message path - learn ALL paths even if destination already known"""
         if len(path) < 2:
             return  # No tree info to learn
         
@@ -135,25 +247,14 @@ class Node:
                 # The parent is the next node in the path towards the target
                 parent_in_tree = path[i + 1]
             
-            # Update knowledge tree
-            if target_node not in self.knowledge_tree:
-                self.knowledge_tree[target_node] = {
-                    'parent': parent_in_tree,
-                    'distance': distance_to_target,
-                    'learned_frame': current_frame,
-                    'next_hop': next_hop
-                }
-                print(f"         🌲 New tree entry: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
-            else:
-                # Update if we found a shorter path
-                if distance_to_target < self.knowledge_tree[target_node]['distance']:
-                    self.knowledge_tree[target_node].update({
-                        'parent': parent_in_tree,
-                        'distance': distance_to_target,
-                        'learned_frame': current_frame,
-                        'next_hop': next_hop
-                    })
-                    print(f"         🌲 Updated tree entry: {target_node} (new distance: {distance_to_target}, parent: {parent_in_tree})")
+            # ALWAYS add to knowledge tree - learn every path, even duplicate destinations
+            self.knowledge_tree[target_node] = {
+                'parent': parent_in_tree,
+                'distance': distance_to_target,
+                'learned_frame': current_frame,
+                'next_hop': next_hop
+            }
+            print(f"         🌲 Tree entry: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
 
     def process_received_messages(self, current_frame=0):
         """Process all message copies received this frame with tree building"""

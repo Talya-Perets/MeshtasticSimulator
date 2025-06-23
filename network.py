@@ -15,9 +15,9 @@ class Network:
     
     # Fixed seeds for reproducible graph layouts
     FIXED_SEEDS = {
-        10: 12345,   # Seed for 10-node graphs - compact cluster
-        50: 54321,   # Seed for 50-node graphs - medium complexity
-        100: 77777   # Seed for 100-node graphs - well distributed, normal connectivity
+        10: 5678,   # Seed for 10-node graphs - compact cluster
+        50: 5678,   # Seed for 50-node graphs - medium complexity
+        100: 5678   # Seed for 100-node graphs - well distributed, normal connectivity
     }
     
     def __init__(self, space_size=10):
@@ -59,7 +59,7 @@ class Network:
         # Adjust space size and connectivity based on number of nodes
         if num_nodes == 10:
             self.space_size = 6
-            self.target_avg_neighbors = 3.5  # Dense for small graph
+            self.target_avg_neighbors = 3  
         elif num_nodes == 50:
             self.space_size = max(8, math.sqrt(num_nodes) * 1.8)
             self.target_avg_neighbors = 3.0  # Moderate connectivity

@@ -10,6 +10,7 @@ Features:
 - Step-by-step simulation with user control
 - Statistics tracking and path analysis
 - FIXED graph layouts for reproducible experiments
+- Modular design with separate managers for different phases
 
 Usage:
     python main.py                 # Interactive mode
@@ -19,12 +20,12 @@ Usage:
 
 Controls:
     - SPACE/Enter: Advance to next frame
-    - 'q': Quit simulation
+    - 'q': Quit simulation or skip learning
 
 Author: Network Simulation Project
 """
 
-# Import the simulator class
+# Import the refactored simulator class
 from simulator import Simulator
 import sys
 
@@ -57,15 +58,16 @@ def main():
                     num_messages = 8  # More messages for larger graph
                     
                 total_frames = 60
+                skip_learning = True  # Skip interactive learning for presets
             else:
                 print(f"Invalid preset size {preset_size}. Available: 10, 50, 100")
                 return
         else:
             # Get user input for simulation parameters
-            num_nodes, num_messages, total_frames = simulator.get_user_input()
+            num_nodes, num_messages, total_frames, skip_learning = simulator.get_user_input()
         
         # Setup the simulation
-        simulator.setup_simulation(num_nodes, num_messages, total_frames)
+        simulator.setup_simulation(num_nodes, num_messages, total_frames, skip_learning)
         
         # Run the simulation
         simulator.run_simulation()
@@ -86,7 +88,7 @@ def run_example_simulation():
     simulator = Simulator()
     
     # Setup with predefined parameters using optimized graph
-    simulator.setup_simulation(num_nodes=10, num_messages=3, total_frames=40)
+    simulator.setup_simulation(num_nodes=10, num_messages=3, total_frames=40, skip_learning=False)
     
     # Run simulation
     simulator.run_simulation()
@@ -107,7 +109,7 @@ def run_comparison_demo():
         
         simulator = Simulator()
         messages = messages_for_size[size]
-        simulator.setup_simulation(num_nodes=size, num_messages=messages, total_frames=60)
+        simulator.setup_simulation(num_nodes=size, num_messages=messages, total_frames=60, skip_learning=True)
         
         print(f"Graph created! Each run will show the SAME optimized layout.")
         input("Press Enter to close and try next size...")
@@ -126,13 +128,18 @@ def print_usage_instructions():
     print("  🎯 Size 50: Medium complexity - balanced connectivity") 
     print("  🎯 Size 100: Well distributed - normal connectivity, good spread")
     print("  ✅ Same layout every time - perfect for reproducible experiments")
+    print("\nSIMULATION PHASES:")
+    print("  📚 Learning Phase: Builds knowledge trees through predetermined messages")
+    print("  🔬 Comparison Phase: Tests algorithms using learned knowledge")
     print("\nSIMULATION SETUP:")
     print("1. Choose graph size (10, 50, or 100)")
-    print("2. Enter number of messages")
+    print("2. Enter number of comparison messages")
     print("3. Enter simulation frames")
-    print("3. Use controls during simulation:")
-    print("   - SPACE or Enter: Next frame")
-    print("   - 'q': Quit simulation")
+    print("4. Choose learning display mode (interactive or fast)")
+    print("\nCONTROLS DURING SIMULATION:")
+    print("   - SPACE: Advance to next frame")
+    print("   - Q: Skip learning phase or quit simulation")
+    print("   - R: Reset comparison phase")
     print("\nCOLOR CODING:")
     print("- Green: Source node")
     print("- Red: Target node") 
@@ -141,6 +148,12 @@ def print_usage_instructions():
     print("- Light Blue: Normal node")
     print("\nCOLORED LINES: Active transmissions this frame")
     print("ARROWS: Direction of message flow")
+    print("\nNEW MODULAR ARCHITECTURE:")
+    print("- LearningPhaseManager: Handles learning phase")
+    print("- ComparisonPhaseManager: Handles comparison phase")
+    print("- DisplayManager: Handles visualization")
+    print("- MessageProcessor: Handles message transmission logic")
+    print("- Simulator: Coordinates all components")
 
 if __name__ == "__main__":
     # Check command line arguments
