@@ -38,7 +38,8 @@ class Node:
         self.neighbors = set()
         
         # TREE STRUCTURE: Each node builds a tree of known paths
-        self.knowledge_tree = {}  # {destination_node: {parent: node_id, children: [node_ids], distance: int, learned_frame: int}}
+        # Each destination can have multiple entries (different paths)
+        self.knowledge_tree = {}  # {destination_node: [list of path entries]}
         
     def reset_frame_status(self):
         """Reset status flags that change each frame"""
@@ -185,39 +186,57 @@ class Node:
     def _get_direct_children(self):
         """Get all direct children of this node in the knowledge tree"""
         direct_children = []
-        for dest, info in self.knowledge_tree.items():
-            if info['parent'] == self.id:
-                direct_children.append(dest)
+        for dest, entries_list in self.knowledge_tree.items():
+            for entry in entries_list:
+                if entry['parent'] == self.id and dest not in direct_children:
+                    direct_children.append(dest)
         return direct_children
 
     def _is_in_subtree(self, node, subtree_root):
-        """Check if a node is in the subtree rooted at subtree_root"""
-        if node == subtree_root:
-            return True
-        
-        # Check if node exists in tree and its path goes through subtree_root
-        if node not in self.knowledge_tree:
-            return False
-        
-        # Follow the path from node back to me - if it goes through subtree_root, it's in that subtree
-        current = node
-        while current != self.id:
-            if current == subtree_root:
+            """Check if a node is in the subtree rooted at subtree_root - SIMPLE AND CORRECT"""
+            print(f"        🔍 Checking if {node} is in subtree of {subtree_root}")
+            
+            # The subtree root is always in its own subtree
+            if node == subtree_root:
+                print(f"        ✅ {node} IS the root {subtree_root}")
                 return True
             
-            if current not in self.knowledge_tree:
+            # Check if node exists in my knowledge tree
+            if node not in self.knowledge_tree:
+                print(f"        ❌ {node} not in knowledge tree at all")
                 return False
-                
-            current = self.knowledge_tree[current]['parent']
             
-            # Safety check
-            if current == node:  # Avoid infinite loops
-                break
-        
-        return False
+            # Simple approach: check if any entry of this node has subtree_root as parent
+            # OR if any path from node back to ME goes through subtree_root
+            visited = set()
+            nodes_to_check = [node]
+            
+            while nodes_to_check:
+                current = nodes_to_check.pop(0)
+                
+                if current in visited:
+                    continue
+                visited.add(current)
+                
+                if current == subtree_root:
+                    print(f"        ✅ Found {subtree_root} in path from {node}")
+                    return True
+                
+                if current == self.id:
+                    continue
+                    
+                # Get all parents of current node
+                if current in self.knowledge_tree:
+                    for entry in self.knowledge_tree[current]:
+                        parent = entry['parent']
+                        if parent not in visited:
+                            nodes_to_check.append(parent)
+            
+            print(f"        ❌ {node} NOT found in subtree of {subtree_root}")
+            return False
 
     def build_knowledge_tree_from_message(self, message_source, path, current_frame):
-        """Build knowledge tree from received message path - learn ALL paths even if destination already known"""
+        """Build knowledge tree from received message path - learn ALL paths, store multiple entries per destination"""
         if len(path) < 2:
             return  # No tree info to learn
         
@@ -247,14 +266,20 @@ class Node:
                 # The parent is the next node in the path towards the target
                 parent_in_tree = path[i + 1]
             
-            # ALWAYS add to knowledge tree - learn every path, even duplicate destinations
-            self.knowledge_tree[target_node] = {
+            # Create new entry
+            new_entry = {
                 'parent': parent_in_tree,
                 'distance': distance_to_target,
                 'learned_frame': current_frame,
                 'next_hop': next_hop
             }
-            print(f"         🌲 Tree entry: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
+            
+            # ADD to knowledge tree - keep multiple entries per destination
+            if target_node not in self.knowledge_tree:
+                self.knowledge_tree[target_node] = []
+            
+            self.knowledge_tree[target_node].append(new_entry)
+            print(f"         🌲 Tree entry added: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
 
     def process_received_messages(self, current_frame=0):
         """Process all message copies received this frame with tree building"""
@@ -309,11 +334,12 @@ class Node:
         # Start from myself as root
         print(f"         {self.id} (ME)")
         
-        # Find all direct children (nodes with parent = me)
+        # Find all direct children (nodes with parent = me) - check all entries
         direct_children = []
-        for node, info in self.knowledge_tree.items():
-            if info['parent'] == self.id:
-                direct_children.append(node)
+        for node, entries_list in self.knowledge_tree.items():
+            for entry in entries_list:
+                if entry['parent'] == self.id and node not in direct_children:
+                    direct_children.append(node)
         
         # Sort for consistent output
         direct_children.sort()
@@ -321,33 +347,44 @@ class Node:
         # Print each direct child and its subtree
         for i, child in enumerate(direct_children):
             is_last = (i == len(direct_children) - 1)
-            self._print_subtree(child, "", is_last, set())
+            self._print_subtree(child, "", is_last, set(), [])
     
-    def _print_subtree(self, node, prefix, is_last, printed_nodes):
-        """Print a subtree starting from given node"""
-        if node in printed_nodes:
+    def _print_subtree(self, node, prefix, is_last, printed_in_this_path, full_path):
+        """Print a subtree starting from given node - allow same node in different paths"""
+        
+        # Check for cycles in current path only
+        if node in full_path:
             return
-        printed_nodes.add(node)
         
-        # Print current node
+        current_path = full_path + [node]
+        
+        # Print current node with all its distances
         connector = "└── " if is_last else "├── "
-        distance = self.knowledge_tree.get(node, {}).get('distance', '?')
-        print(f"         {prefix}{connector}{node} (d:{distance})")
         
-        # Find children of this node
+        if node in self.knowledge_tree:
+            distances = [entry['distance'] for entry in self.knowledge_tree[node]]
+            distances_str = f"d:{','.join(map(str, sorted(set(distances))))}"
+        else:
+            distances_str = "d:?"
+            
+        print(f"         {prefix}{connector}{node} ({distances_str})")
+        
+        # Find ALL children of this node from ALL entries - DON'T skip duplicates
         children = []
-        for other_node, info in self.knowledge_tree.items():
-            if info['parent'] == node and other_node not in printed_nodes:
-                children.append(other_node)
+        for other_node, entries_list in self.knowledge_tree.items():
+            for entry in entries_list:
+                if entry['parent'] == node and other_node not in current_path:
+                    if other_node not in [child[0] for child in children]:
+                        children.append((other_node, entry))
         
         # Sort children for consistent output
-        children.sort()
+        children.sort(key=lambda x: x[0])
         
         # Print each child
-        for i, child in enumerate(children):
+        for i, (child, entry) in enumerate(children):
             is_child_last = (i == len(children) - 1)
             child_prefix = prefix + ("    " if is_last else "│   ")
-            self._print_subtree(child, child_prefix, is_child_last, printed_nodes)
+            self._print_subtree(child, child_prefix, is_child_last, set(), current_path)
 
     def get_tree_summary(self):
         """Get a summary of the knowledge tree for display"""
@@ -355,8 +392,12 @@ class Node:
             return "Empty tree"
         
         summary_lines = []
-        for dest, info in sorted(self.knowledge_tree.items()):
-            summary_lines.append(f"→{dest} (d:{info['distance']}, via:{info['next_hop']})")
+        for dest, entries_list in sorted(self.knowledge_tree.items()):
+            distances = [entry['distance'] for entry in entries_list]
+            next_hops = [entry['next_hop'] for entry in entries_list if entry['next_hop']]
+            distances_str = ','.join(map(str, sorted(set(distances))))
+            next_hops_str = ','.join(map(str, sorted(set(next_hops))))
+            summary_lines.append(f"→{dest} (d:{distances_str}, via:{next_hops_str})")
         
         return " | ".join(summary_lines)
 

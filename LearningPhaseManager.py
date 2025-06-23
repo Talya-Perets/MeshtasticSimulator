@@ -248,6 +248,7 @@ class LearningPhaseManager:
                 print(f"📝 No new knowledge gained this frame")
         
         print("=" * 70)
+  
     def _clear_learning_message_status(self, completed_message):
         """Clear source/target status when learning message completes"""
         source_id = completed_message.source
