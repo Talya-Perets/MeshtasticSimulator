@@ -109,15 +109,25 @@ class Simulator:
         print("="*50)
         
     def get_user_input(self):
-        """Get simulation parameters from user"""
+        """Get simulation parameters from user with fixed graph options"""
         print("Network Flooding Simulator Setup")
         print("-" * 30)
         
+        # Show only supported fixed graph options
+        fixed_sizes = self.network.get_supported_fixed_sizes()
+        print(f"🎯 Available graph sizes: {fixed_sizes}")
+        print("Each size has an optimized layout for learning message passing algorithms")
+        print()
+        
         try:
-            num_nodes = int(input("Enter number of nodes (10-100): "))
-            if not 10 <= num_nodes <= 100:
-                print("Using default: 15 nodes")
-                num_nodes = 15
+            while True:
+                num_nodes = int(input("Enter number of nodes (10, 50, or 100): "))
+                if num_nodes in fixed_sizes:
+                    print(f"✅ Using optimized layout for {num_nodes} nodes")
+                    break
+                else:
+                    print(f"❌ Only sizes {fixed_sizes} are supported. Please choose one of these.")
+                    continue
                 
             num_messages = int(input("Enter number of messages: "))
             if num_messages < 1:
@@ -130,11 +140,11 @@ class Simulator:
                 total_frames = 60
                 
         except ValueError:
-            print("Invalid input, using defaults: 15 nodes, 5 messages, 60 frames")
-            num_nodes, num_messages, total_frames = 15, 5, 60
+            print("Invalid input, using defaults: 10 nodes, 5 messages, 60 frames")
+            num_nodes, num_messages, total_frames = 10, 5, 60
             
         return num_nodes, num_messages, total_frames
-        
+
     def initialize_display(self):
         """Initialize matplotlib display with keyboard controls"""
         plt.ion()  # Turn on interactive mode
@@ -202,29 +212,29 @@ class Simulator:
             self._reset_simulation()
             
     def advance_frame(self):
-            """Advance simulation by one frame"""
-            if self.current_frame >= self.total_frames:
-                print("Simulation completed!")
-                return
-                
-            # Execute frame
-            self.execute_frame()
+        """Advance simulation by one frame"""
+        if self.current_frame >= self.total_frames:
+            print("Simulation completed!")
+            return
             
-            # Update display AFTER frame execution
-            self.update_display()
+        # Execute frame
+        self.execute_frame()
+        
+        # Update display AFTER frame execution
+        self.update_display()
+        
+        # Clear completed messages after display
+        if hasattr(self, 'completed_this_frame'):
+            self.completed_this_frame.clear()
+        
+        # Check completion
+        if all(msg.is_completed for msg in self.messages.values()):
+            print(f"All messages completed at frame {self.current_frame}!")
+            self._show_final_statistics()
             
-            # Clear completed messages after display
-            if hasattr(self, 'completed_this_frame'):
-                self.completed_this_frame.clear()
-            
-            # Check completion
-            if all(msg.is_completed for msg in self.messages.values()):
-                print(f"All messages completed at frame {self.current_frame}!")
-                self._show_final_statistics()
-                
-            elif self.current_frame >= self.total_frames:
-                print(f"Simulation completed after {self.total_frames} frames!")
-                self._show_final_statistics()
+        elif self.current_frame >= self.total_frames:
+            print(f"Simulation completed after {self.total_frames} frames!")
+            self._show_final_statistics()
 
     def _reset_simulation(self):
         """Reset simulation to initial state"""
@@ -248,7 +258,6 @@ class Simulator:
         # Update display
         self.update_display()
         print("Simulation reset to frame 0")
-
 
     def draw_network(self):
         """Draw the current state of the network"""
@@ -280,12 +289,11 @@ class Simulator:
                 print(f"node {node_id} is resv")
             if (node.status_flags[node.STATUS_RECEIVING] and 
                 (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
-                # Draw pink border around the node
+                # Draw orange border around the node
                 print("in line orange")
                 border_circle = plt.Circle(pos, 0.15, fill=False, 
                                         edgecolor='orange', linewidth=3, zorder=4)
                 self.ax.add_patch(border_circle)
-
 
             # NEW: Add pink border if collision AND (source OR target)
             if (node.status_flags[node.STATUS_COLLISION] and 
@@ -311,7 +319,6 @@ class Simulator:
         margin = 0.5
         self.ax.set_xlim(min(x_coords) - margin, max(x_coords) + margin)
         self.ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
-
 
     def _draw_active_transmissions(self):
         """Draw lines for actual transmissions happening this frame - with different colors per message"""
@@ -525,56 +532,54 @@ class Simulator:
         print("Simulation ended.")
         
     def execute_frame(self):
-            """Execute one simulation frame"""
-            print(f"\n--- FRAME {self.current_frame + 1} START ---")
-            
-            # Reset all nodes FIRST (clear old SENDING status)
-            for node_id, node in self.network.nodes.items():
-                node.reset_frame_status()
-            
-            # Re-mark source and target nodes for ACTIVE messages only
-            for message in self.messages.values():
-                if message.is_active and not message.is_completed:
-                    self.network.nodes[message.source].set_as_source(True)
-                    self.network.nodes[message.target].set_as_target(True)
-            
-                
-            # Start messages that begin this frame
-            self._start_messages_for_frame()
-            
-            # Process message transmissions
-            self._process_transmissions()
-            
-            # Update statistics
-            self._update_frame_statistics()
-            
-            # Advance to next frame
-            self.current_frame += 1
-
-            self._print_all_routing_tables()
-            
-            print(f"--- FRAME {self.current_frame} END ---")
-
-    def _print_all_routing_tables(self):
-        """Print routing tables for all nodes at end of frame"""
-        print(f"\n📋 ROUTING TABLES - End of Frame {self.current_frame}:")
-        print("=" * 50)
+        """Execute one simulation frame"""
+        print(f"\n--- FRAME {self.current_frame + 1} START ---")
         
+        # Reset all nodes FIRST (clear old SENDING status)
+        for node_id, node in self.network.nodes.items():
+            node.reset_frame_status()
+        
+        # Re-mark source and target nodes for ACTIVE messages only
+        for message in self.messages.values():
+            if message.is_active and not message.is_completed:
+                self.network.nodes[message.source].set_as_source(True)
+                self.network.nodes[message.target].set_as_target(True)
+        
+            
+        # Start messages that begin this frame
+        self._start_messages_for_frame()
+        
+        # Process message transmissions
+        self._process_transmissions()
+        
+        # Update statistics
+        self._update_frame_statistics()
+        
+        # Advance to next frame
+        self.current_frame += 1
+
+        # PRINT KNOWLEDGE TREES AFTER EACH FRAME
+        self._print_all_knowledge_trees()
+        
+        print(f"--- FRAME {self.current_frame} END ---")
+
+    def _print_all_knowledge_trees(self):
+        """Print knowledge trees for all nodes at end of frame"""
+        print(f"\n🌳 KNOWLEDGE TREES - End of Frame {self.current_frame}:")
+        print("=" * 60)
+        
+        trees_found = False
         for node_id in sorted(self.network.nodes.keys()):
             node = self.network.nodes[node_id]
-            print(f"\nNode {node_id}:")
-            
-            if not node.routing_table:
-                print("  (empty)")
-            else:
-                for destination in sorted(node.routing_table.keys()):
-                    routes = node.routing_table[destination]
-                    print(f"  To reach {destination}:")
-                    for next_hop in sorted(routes.keys()):
-                        info = routes[next_hop]
-                        print(f"    via {next_hop} → distance {info['distance']}")
+            if node.knowledge_tree:  # Only print if node has learned something
+                trees_found = True
+                node.print_knowledge_tree()
+                print()  # Empty line between trees
         
-        print("=" * 50)
+        if not trees_found:
+            print("\n   (No knowledge trees built yet)")
+        
+        print("=" * 60)
 
     def _start_messages_for_frame(self):
         """Start messages that should begin this frame"""
@@ -750,7 +755,7 @@ class Simulator:
                 for message, current_path, local_hop_limit in sender_node.pending_messages:
                     valid_neighbors = []
                     
-                   # NEW: Use routing decision instead of flooding to all neighbors
+                   # USE PURE FLOODING - always send to all neighbors
                     valid_neighbors = sender_node.get_routing_decision(message, local_hop_limit)
 
                     # Remove ping-pong (sender from last hop)
@@ -849,8 +854,7 @@ class Simulator:
         
         if receiving_nodes:
             print(f"Receiving nodes: {receiving_nodes}")
-        for node_id in receiving_nodes:
-            self.network.nodes[node_id].print_routing_table()
+            # Don't print individual trees here - only at end of frame
         
         self.completed_this_frame = completed_messages_this_frame                 
    
@@ -910,8 +914,8 @@ class Simulator:
         print(f"Total Collisions: {self.stats['total_collisions']}")
         
         # Collision statistics
-        max_collisions = max(self.stats['collisions_per_frame'])
-        avg_collisions = sum(self.stats['collisions_per_frame']) / len(self.stats['collisions_per_frame'])
+        max_collisions = max(self.stats['collisions_per_frame']) if self.stats['collisions_per_frame'] else 0
+        avg_collisions = sum(self.stats['collisions_per_frame']) / len(self.stats['collisions_per_frame']) if self.stats['collisions_per_frame'] else 0
         
         print(f"Max Collisions per Frame: {max_collisions}")
         print(f"Average Collisions per Frame: {avg_collisions:.1f}")
@@ -926,5 +930,16 @@ class Simulator:
                 longest_path = max(message.paths, key=len)
                 print(f"  Shortest path: {shortest_path} (length: {len(shortest_path)})")
                 print(f"  Longest path: {longest_path} (length: {len(longest_path)})")
+        
+        # FINAL KNOWLEDGE TREES SUMMARY
+        print(f"\n🌳 FINAL KNOWLEDGE TREES SUMMARY:")
+        print("="*60)
+        for node_id in sorted(self.network.nodes.keys()):
+            node = self.network.nodes[node_id]
+            if node.knowledge_tree:
+                print(f"\n📍 Node {node_id} Final Tree:")
+                node.print_knowledge_tree()
+            else:
+                print(f"\n📍 Node {node_id}: No knowledge learned")
                 
         print("="*60)

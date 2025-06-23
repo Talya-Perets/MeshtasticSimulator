@@ -10,7 +10,15 @@ from node import Node
 class Network:
     """
     Network class that manages node distribution and connections
+    Now supports fixed graph layouts for specific node counts
     """
+    
+    # Fixed seeds for reproducible graph layouts
+    FIXED_SEEDS = {
+        10: 12345,   # Seed for 10-node graphs - compact cluster
+        50: 54321,   # Seed for 50-node graphs - medium complexity
+        100: 77777   # Seed for 100-node graphs - well distributed, normal connectivity
+    }
     
     def __init__(self, space_size=10):
         self.graph = nx.Graph()
@@ -28,22 +36,60 @@ class Network:
         self.radius_variation = variation
         
     def create_nodes(self, num_nodes, distribution_type="improved_random"):
-        """Create nodes with specified distribution pattern"""
+        """Create nodes with specified distribution pattern
+        
+        For specific node counts (10, 50, 100), uses fixed seed for reproducible layouts
+        """
         self.nodes.clear()
         self.graph.clear()
         
-        # Adjust space size based on number of nodes
-        self.space_size = max(8, math.sqrt(num_nodes) * 1.8)
-        
-        if distribution_type == "improved_random":
-            self._create_improved_random_layout(num_nodes)
-        elif distribution_type == "poisson":
-            self._create_poisson_layout(num_nodes)
+        # Use fixed seed for specific node counts to ensure reproducible graphs
+        if num_nodes in self.FIXED_SEEDS:
+            original_state = random.getstate()  # Save current random state
+            np_original_state = np.random.get_state()  # Save numpy random state
+            
+            # Set fixed seeds
+            random.seed(self.FIXED_SEEDS[num_nodes])
+            np.random.seed(self.FIXED_SEEDS[num_nodes])
+            
+            print(f"🎯 Using fixed layout for {num_nodes} nodes (seed: {self.FIXED_SEEDS[num_nodes]})")
         else:
-            self._create_pure_random_layout(num_nodes)
+            print(f"🎲 Using random layout for {num_nodes} nodes")
+        
+        # Adjust space size and connectivity based on number of nodes
+        if num_nodes == 10:
+            self.space_size = 6
+            self.target_avg_neighbors = 3.5  # Dense for small graph
+        elif num_nodes == 50:
+            self.space_size = max(8, math.sqrt(num_nodes) * 1.8)
+            self.target_avg_neighbors = 3.0  # Moderate connectivity
+        elif num_nodes == 100:
+            self.space_size = max(10, math.sqrt(num_nodes) * 1.6)  # Good spread
+            self.target_avg_neighbors = 3.2  # Normal connectivity
+        else:
+            # Fallback for unsupported sizes
+            self.space_size = max(8, math.sqrt(num_nodes) * 1.8)
+            self.target_avg_neighbors = 3.0
+        
+        try:
+            if distribution_type == "improved_random":
+                self._create_improved_random_layout(num_nodes)
+            elif distribution_type == "poisson":
+                self._create_poisson_layout(num_nodes)
+            else:
+                self._create_pure_random_layout(num_nodes)
+        finally:
+            # Restore original random state for other random operations
+            if num_nodes in self.FIXED_SEEDS:
+                random.setstate(original_state)
+                np.random.set_state(np_original_state)
+                print(f"✅ Fixed layout created, random state restored")
             
     def _create_improved_random_layout(self, num_nodes):
-        """Grid-based distribution with randomness within cells"""
+        """Grid-based distribution with randomness within cells
+        Optimized layouts for learning message passing algorithms"""
+        
+        # Use standard grid layout for all sizes - works well for all
         grid_size = int(np.sqrt(num_nodes)) + 1
         cell_size = self.space_size / grid_size
         
@@ -51,9 +97,14 @@ class Network:
             grid_x = i % grid_size
             grid_y = i // grid_size
             
-            # Random position within cell
-            x = grid_x * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
-            y = grid_y * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
+            # Random position within cell with good spread
+            if num_nodes == 100:
+                # More randomness for 100 nodes to avoid rigid grid
+                x = grid_x * cell_size + random.uniform(0, cell_size * 0.9) + cell_size * 0.05
+                y = grid_y * cell_size + random.uniform(0, cell_size * 0.9) + cell_size * 0.05
+            else:
+                x = grid_x * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
+                y = grid_y * cell_size + random.uniform(0, cell_size * 0.8) + cell_size * 0.1
             
             # Keep within bounds
             x = min(max(x, 0), self.space_size)
@@ -135,33 +186,43 @@ class Network:
         if len(self.nodes) <= 1:
             return 2.0
         
-        # Calculate all pairwise distances
-        distances = []
-        for i in self.nodes:
-            for j in self.nodes:
-                if i != j:
-                    pos1 = self.node_positions[i]
-                    pos2 = self.node_positions[j]
-                    distance = math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
-                    distances.append(distance)
+        # Use fixed seed for radius calculation to ensure consistent connections
+        if len(self.nodes) in self.FIXED_SEEDS:
+            original_state = random.getstate()
+            random.seed(self.FIXED_SEEDS[len(self.nodes)] + 1000)  # Different seed for radius calc
         
-        distances.sort()
-        
-        # Start from first quartile distance
-        initial_radius = distances[len(distances) // 4]
-        
-        # Find radius closest to target neighbor count
-        best_radius = initial_radius
-        best_diff = float('inf')
-        
-        for radius in np.linspace(initial_radius * 0.3, initial_radius * 3, 30):
-            avg_neighbors = self.calculate_avg_neighbors(radius)
-            diff = abs(avg_neighbors - self.target_avg_neighbors)
-            if diff < best_diff:
-                best_diff = diff
-                best_radius = radius
-        
-        return best_radius
+        try:
+            # Calculate all pairwise distances
+            distances = []
+            for i in self.nodes:
+                for j in self.nodes:
+                    if i != j:
+                        pos1 = self.node_positions[i]
+                        pos2 = self.node_positions[j]
+                        distance = math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+                        distances.append(distance)
+            
+            distances.sort()
+            
+            # Start from first quartile distance
+            initial_radius = distances[len(distances) // 4]
+            
+            # Find radius closest to target neighbor count
+            best_radius = initial_radius
+            best_diff = float('inf')
+            
+            for radius in np.linspace(initial_radius * 0.3, initial_radius * 3, 30):
+                avg_neighbors = self.calculate_avg_neighbors(radius)
+                diff = abs(avg_neighbors - self.target_avg_neighbors)
+                if diff < best_diff:
+                    best_diff = diff
+                    best_radius = radius
+            
+            return best_radius
+        finally:
+            # Restore random state
+            if len(self.nodes) in self.FIXED_SEEDS:
+                random.setstate(original_state)
     
     def calculate_avg_neighbors(self, radius):
         """Calculate average number of neighbors for given radius"""
@@ -184,32 +245,42 @@ class Network:
 
     def create_network_connections(self):
         """Create connections based on communication radius"""
-        # Calculate optimal radius if not set
-        if self.communication_radius == 0:
-            self.communication_radius = self.calculate_optimal_radius()
+        # Use fixed seed for connection creation to ensure consistent topology
+        if len(self.nodes) in self.FIXED_SEEDS:
+            original_state = random.getstate()
+            random.seed(self.FIXED_SEEDS[len(self.nodes)] + 2000)  # Different seed for connections
         
-        # Clear existing connections
-        for node in self.nodes.values():
-            node.neighbors.clear()
-        self.graph.clear_edges()
-        
-        # Create connections within radius
-        for i in self.nodes:
-            pos1 = self.node_positions[i]
+        try:
+            # Calculate optimal radius if not set
+            if self.communication_radius == 0:
+                self.communication_radius = self.calculate_optimal_radius()
             
-            # Small random variation in radius
-            variation = random.uniform(-self.radius_variation, self.radius_variation)
-            node_radius = self.communication_radius * (1 + variation)
+            # Clear existing connections
+            for node in self.nodes.values():
+                node.neighbors.clear()
+            self.graph.clear_edges()
             
-            for j in self.nodes:
-                if i != j and not self.graph.has_edge(i, j):
-                    pos2 = self.node_positions[j]
-                    distance = math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
-                    
-                    if distance <= node_radius:
-                        self.nodes[i].add_neighbor(j)
-                        self.nodes[j].add_neighbor(i)
-                        self.graph.add_edge(i, j)
+            # Create connections within radius
+            for i in self.nodes:
+                pos1 = self.node_positions[i]
+                
+                # Small random variation in radius
+                variation = random.uniform(-self.radius_variation, self.radius_variation)
+                node_radius = self.communication_radius * (1 + variation)
+                
+                for j in self.nodes:
+                    if i != j and not self.graph.has_edge(i, j):
+                        pos2 = self.node_positions[j]
+                        distance = math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+                        
+                        if distance <= node_radius:
+                            self.nodes[i].add_neighbor(j)
+                            self.nodes[j].add_neighbor(i)
+                            self.graph.add_edge(i, j)
+        finally:
+            # Restore random state
+            if len(self.nodes) in self.FIXED_SEEDS:
+                random.setstate(original_state)
 
     def add_connection(self, node1_id, node2_id):
         """Add bidirectional connection between nodes"""
@@ -219,7 +290,7 @@ class Network:
             self.nodes[node2_id].add_neighbor(node1_id)
 
     def reset_all_nodes(self):
-        """Reset all node states"""
+        """Reset all node states including knowledge trees"""
         for node in self.nodes.values():
             node.reset_frame_status()
             node.set_as_source(False)
@@ -230,13 +301,18 @@ class Network:
                 node.seen_message_copies.clear()
             if hasattr(node, 'received_message_ids'):
                 node.received_message_ids.clear()
+            # RESET KNOWLEDGE TREES
+            node.knowledge_tree.clear()
 
     def print_network_summary(self):
         """Print network statistics"""
         total_edges = self.graph.number_of_edges()
         avg_degree = (2 * total_edges) / len(self.nodes) if self.nodes else 0
         
-        print(f"Network: {len(self.nodes)} nodes, {total_edges} edges")
+        # Add indication if this is a fixed layout
+        layout_type = "Fixed" if len(self.nodes) in self.FIXED_SEEDS else "Random"
+        
+        print(f"Network: {len(self.nodes)} nodes, {total_edges} edges ({layout_type} layout)")
         print(f"Area: {self.space_size:.1f} x {self.space_size:.1f}")
         print(f"Communication radius: {self.communication_radius:.2f}")
         print(f"Average neighbors: {avg_degree:.1f}")
@@ -253,3 +329,19 @@ class Network:
     def get_transmission_radius(self):
         """Get current communication radius"""
         return self.communication_radius
+    
+    @classmethod
+    def add_fixed_layout(cls, num_nodes, seed):
+        """Add a new fixed layout for a specific number of nodes
+        
+        Args:
+            num_nodes: Number of nodes for this layout
+            seed: Random seed to use for this layout
+        """
+        cls.FIXED_SEEDS[num_nodes] = seed
+        print(f"Added fixed layout: {num_nodes} nodes with seed {seed}")
+    
+    @classmethod
+    def get_supported_fixed_sizes(cls):
+        """Get list of supported fixed graph sizes"""
+        return sorted(cls.FIXED_SEEDS.keys())

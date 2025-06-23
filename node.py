@@ -2,7 +2,7 @@ class Node:
     """
     Represents a node in the network
     Each node has status, position, and message handling capabilities
-    Now with Adaptive Routing capabilities
+    Now with Tree Building capabilities instead of routing tables
     """
     
     # Node status constants
@@ -37,9 +37,8 @@ class Node:
         # Neighbors
         self.neighbors = set()
         
-        # ADAPTIVE ROUTING: Enhanced routing tables
-        self.routing_table = {}  # {destination: {next_hop: {'distance': int, 'last_updated': frame}}}
-        self.learned_routes = {}  # Legacy - keep for compatibility
+        # TREE STRUCTURE: Each node builds a tree of known paths
+        self.knowledge_tree = {}  # {destination_node: {parent: node_id, children: [node_ids], distance: int, learned_frame: int}}
         
     def reset_frame_status(self):
         """Reset status flags that change each frame"""
@@ -97,43 +96,18 @@ class Node:
         return True
 
     def get_routing_decision(self, message, hop_limit_remaining):
-        """Decide which neighbors to send to based on routing table - SEND TO ALL VALID ROUTES"""
-        target = message.target
-        
-        print(f"📋 Node {self.id} routing decision for Message {message.id} (target: {target}):")
+        """PURE FLOODING - always send to all neighbors (no routing table decision)"""
+        print(f"📋 Node {self.id} flooding decision for Message {message.id} (target: {message.target}):")
         print(f"   Hop limit remaining: {hop_limit_remaining}")
+        print(f"   ✅ Decision: PURE FLOODING to all neighbors {list(self.neighbors)}")
         
-        # Check if we have routing info for this target
-        if target not in self.routing_table:
-            print(f"   ❓ No routes to destination {target} → fallback to FLOODING")
-            return list(self.neighbors)  # Fallback to flooding
-        
-        # Analyze available routes to the TARGET - SEND TO ALL VALID ROUTES
-        print(f"   Checking routes to target {target}:")
-        valid_neighbors = []
-        
-        for next_hop, route_info in self.routing_table[target].items():
-            distance = route_info['distance']
-            
-            if hop_limit_remaining >= distance and next_hop in self.neighbors:
-                print(f"   ├─ via neighbor {next_hop} → distance {distance}, hop_limit_left: {hop_limit_remaining} ✅ SEND")
-                valid_neighbors.append(next_hop)
-            elif next_hop not in self.neighbors:
-                print(f"   ├─ via {next_hop} → distance {distance} ❌ NOT A NEIGHBOR")
-            else:
-                print(f"   ├─ via neighbor {next_hop} → distance {distance}, hop_limit_left: {hop_limit_remaining} ❌ TOO FAR")
-        
-        if not valid_neighbors:
-            print(f"   ⚠️ No valid routes found → fallback to FLOODING")
-            return list(self.neighbors)  # Fallback to flooding if no good routes
-        
-        print(f"   ✅ Decision: Send to neighbors {valid_neighbors}")
-        return valid_neighbors
+        # Always return all neighbors - pure flooding
+        return list(self.neighbors)
 
-    def learn_route_from_message(self, message_source, path, current_frame):
-        """Learn routing information from received message with BIDIRECTIONAL LEARNING"""
+    def build_knowledge_tree_from_message(self, message_source, path, current_frame):
+        """Build knowledge tree from received message path - representing the full path structure"""
         if len(path) < 2:
-            return  # No routing info to learn
+            return  # No tree info to learn
         
         # Find my position in the path
         try:
@@ -142,74 +116,55 @@ class Node:
             print(f"      ⚠️ Node {self.id} not found in path {path}")
             return
         
-        print(f"      🧠 Node {self.id} learning from path: {' → '.join(map(str, path))}")
+        print(f"      🌳 Node {self.id} building tree from path: {' → '.join(map(str, path))}")
         
-        # Learn routes to ALL nodes that appeared BEFORE me in the path
+        # Build tree by learning the REVERSE path (from me back to source)
+        # This creates a tree showing how to reach all nodes in the path
         for i in range(my_index):
             target_node = path[i]
             distance_to_target = my_index - i
-            next_hop_to_target = path[my_index - 1]  # The node that sent me this message
             
-            # Update routing table for this target
-            if target_node not in self.routing_table:
-                self.routing_table[target_node] = {}
+            # The next hop is always my direct neighbor in the path (the one who sent me the message)
+            next_hop = path[my_index - 1] if my_index > 0 else None
             
-            # Check if this is a better or new route
-            current_best = None
-            if next_hop_to_target in self.routing_table[target_node]:
-                current_best = self.routing_table[target_node][next_hop_to_target]
+            # The parent in the tree is the next node in the path towards the target
+            if distance_to_target == 1:
+                # Direct neighbor
+                parent_in_tree = self.id
+            else:
+                # The parent is the next node in the path towards the target
+                parent_in_tree = path[i + 1]
             
-            if current_best is None or distance_to_target < current_best['distance']:
-                self.routing_table[target_node][next_hop_to_target] = {
+            # Update knowledge tree
+            if target_node not in self.knowledge_tree:
+                self.knowledge_tree[target_node] = {
+                    'parent': parent_in_tree,
                     'distance': distance_to_target,
-                    'last_updated': current_frame
+                    'learned_frame': current_frame,
+                    'next_hop': next_hop
                 }
-                print(f"         📝 Learned: to reach {target_node}, go via {next_hop_to_target} (distance {distance_to_target} hops)")
-
-    def get_best_next_hops(self, destination):
-        """Get the best next hops for a destination based on routing table"""
-        if destination not in self.routing_table:
-            return None  # No routing info - use flooding
-            
-        # Find the shortest distance
-        routes = self.routing_table[destination]
-        if not routes:
-            return None
-            
-        min_distance = min(route['distance'] for route in routes.values())
-        
-        # Get all next hops with the shortest distance
-        best_hops = [
-            next_hop for next_hop, route_info in routes.items()
-            if route_info['distance'] == min_distance
-        ]
-        
-        return best_hops
-    
-    def should_use_routing_table(self, destination):
-        """Decide whether to use routing table or flooding"""
-        best_hops = self.get_best_next_hops(destination)
-        if best_hops is None:
-            return False, []  # No routing info - use flooding
-            
-        # Filter to only neighbors (in case routing table has outdated info)
-        valid_hops = [hop for hop in best_hops if hop in self.neighbors]
-        
-        if not valid_hops:
-            return False, []  # No valid routes - use flooding
-            
-        return True, valid_hops
+                print(f"         🌲 New tree entry: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
+            else:
+                # Update if we found a shorter path
+                if distance_to_target < self.knowledge_tree[target_node]['distance']:
+                    self.knowledge_tree[target_node].update({
+                        'parent': parent_in_tree,
+                        'distance': distance_to_target,
+                        'learned_frame': current_frame,
+                        'next_hop': next_hop
+                    })
+                    print(f"         🌲 Updated tree entry: {target_node} (new distance: {distance_to_target}, parent: {parent_in_tree})")
 
     def process_received_messages(self, current_frame=0):
-        """Process all message copies received this frame with routing learning"""
+        """Process all message copies received this frame with tree building"""
         processed_messages = []
         for message, sender_id, sender_path in self.received_messages:
             
             # Create new path
             new_path = message.create_new_copy(sender_id, self.id, sender_path)
             
-            # LEARN ROUTING: Update routing table from this message (BIDIRECTIONAL)
-            self.learn_route_from_message(message.source, new_path, current_frame)
+            # BUILD TREE: Update knowledge tree from this message
+            self.build_knowledge_tree_from_message(message.source, new_path, current_frame)
             
             # Calculate hop limit
             hops_used = len(new_path) - 1
@@ -238,17 +193,71 @@ class Node:
                     
         return processed_messages
     
-    def print_routing_table(self):
-        """Print current routing table for debugging"""
-        print(f"      📋 Node {self.id} Routing Table:")
-        if not self.routing_table:
+    def print_knowledge_tree(self):
+        """Print current knowledge tree as actual tree structure"""
+        print(f"      🌳 Node {self.id} Knowledge Tree:")
+        if not self.knowledge_tree:
             print(f"         (empty)")
             return
-            
-        for destination, routes in self.routing_table.items():
-            print(f"         To reach {destination}:")
-            for next_hop, info in routes.items():
-                print(f"           via {next_hop} -> distance {info['distance']} (frame {info['last_updated']})")
+        
+        # Build the actual tree structure
+        self._print_tree_structure()
+    
+    def _print_tree_structure(self):
+        """Print the tree showing the path structure from me to all known destinations"""
+        # Start from myself as root
+        print(f"         {self.id} (ME)")
+        
+        # Find all direct children (nodes with parent = me)
+        direct_children = []
+        for node, info in self.knowledge_tree.items():
+            if info['parent'] == self.id:
+                direct_children.append(node)
+        
+        # Sort for consistent output
+        direct_children.sort()
+        
+        # Print each direct child and its subtree
+        for i, child in enumerate(direct_children):
+            is_last = (i == len(direct_children) - 1)
+            self._print_subtree(child, "", is_last, set())
+    
+    def _print_subtree(self, node, prefix, is_last, printed_nodes):
+        """Print a subtree starting from given node"""
+        if node in printed_nodes:
+            return
+        printed_nodes.add(node)
+        
+        # Print current node
+        connector = "└── " if is_last else "├── "
+        distance = self.knowledge_tree.get(node, {}).get('distance', '?')
+        print(f"         {prefix}{connector}{node} (d:{distance})")
+        
+        # Find children of this node
+        children = []
+        for other_node, info in self.knowledge_tree.items():
+            if info['parent'] == node and other_node not in printed_nodes:
+                children.append(other_node)
+        
+        # Sort children for consistent output
+        children.sort()
+        
+        # Print each child
+        for i, child in enumerate(children):
+            is_child_last = (i == len(children) - 1)
+            child_prefix = prefix + ("    " if is_last else "│   ")
+            self._print_subtree(child, child_prefix, is_child_last, printed_nodes)
+
+    def get_tree_summary(self):
+        """Get a summary of the knowledge tree for display"""
+        if not self.knowledge_tree:
+            return "Empty tree"
+        
+        summary_lines = []
+        for dest, info in sorted(self.knowledge_tree.items()):
+            summary_lines.append(f"→{dest} (d:{info['distance']}, via:{info['next_hop']})")
+        
+        return " | ".join(summary_lines)
 
     def get_display_color(self):
         """Get the color for displaying this node"""
@@ -266,4 +275,5 @@ class Node:
     def __str__(self):
         """String representation of the node"""
         active_statuses = [status for status, active in self.status_flags.items() if active and status != self.STATUS_NORMAL]
-        return f"Node {self.id} at ({self.x:.1f}, {self.y:.1f}) | Status: {active_statuses}"
+        tree_summary = self.get_tree_summary()
+        return f"Node {self.id} at ({self.x:.1f}, {self.y:.1f}) | Status: {active_statuses} | Tree: {tree_summary}"

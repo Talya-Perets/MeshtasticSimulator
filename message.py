@@ -103,29 +103,9 @@ class Message:
         return new_path
         
     def get_routing_table_data(self):
-        """Extract routing information for building routing tables"""
-        routing_info = {}
-        
-        for path in self.paths:
-            if len(path) < 2:
-                continue
-                
-            # For each node in path, record how to reach the source
-            for i in range(1, len(path)):
-                current_node = path[i]
-                previous_node = path[i-1]
-                
-                # This tells us: from current_node, to reach source, go via previous_node
-                if current_node not in routing_info:
-                    routing_info[current_node] = {}
-                    
-                routing_info[current_node][self.source] = {
-                    'next_hop': previous_node,
-                    'distance': i,
-                    'full_path': path[:i+1]
-                }
-                
-        return routing_info
+        """Extract routing information for building routing tables - DEPRECATED"""
+        # This method is no longer used since we switched to tree-based learning
+        return {}
             
     def __str__(self):
         """String representation of the message"""
