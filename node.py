@@ -406,7 +406,7 @@ class Node:
 
     def get_display_color(self):
         """Get the color for displaying this node"""
-        if self.status_flags[self.STATUS_SOURCE]:
+        if self.status_flags[self.STATUS_SOURCE] :
             return "green"
         elif self.status_flags[self.STATUS_TARGET]:
             return "red"

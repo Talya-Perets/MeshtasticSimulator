@@ -37,9 +37,14 @@ class MessageProcessor:
         successful_receives = self._process_receptions(transmission_queue, collision_nodes)
         
         # Phase 4: Process received messages and build knowledge trees
-        completed_messages = self._process_received_messages(collision_nodes, message_type)
+        completed_messages = self._process_received_messages(collision_nodes, message_type, messages)
         
-        # Phase 5: Record statistics if stats manager provided (for comparison phase)
+        # Phase 5: Clean up colors for expired/stalled messages (FIXED!)
+        for message in expired_messages:
+            if message.is_completed:
+                self._immediate_color_cleanup(message, message_type, messages)
+        
+        # Phase 6: Record statistics if stats manager provided (for comparison phase)
         if stats_manager and message_type == "comparison":
             collision_count = len(collision_nodes)
             stats_manager.record_transmission_statistics(transmission_queue, successful_receives, collision_count)
@@ -82,7 +87,8 @@ class MessageProcessor:
                 print(f"  Message {msg.id}: Hop limit exceeded")
         
         # Check for stalled messages (no pending copies anywhere)
-        self._check_stalled_messages(messages)
+        stalled_messages = self._check_stalled_messages(messages)
+        expired_messages.extend(stalled_messages)  # Add stalled messages to cleanup list
         
         return expired_messages
     
@@ -113,6 +119,8 @@ class MessageProcessor:
             print("Stalled messages completed:")
             for msg in stalled_messages:
                 print(f"  Message {msg.id}: No pending copies remaining")
+        
+        return stalled_messages  # Return the list so colors can be cleaned up
     
     def _collect_transmissions(self, messages, message_type):
         """Collect all transmissions from all nodes"""
@@ -230,7 +238,7 @@ class MessageProcessor:
         
         return successful_receives
     
-    def _process_received_messages(self, collision_nodes, message_type):
+    def _process_received_messages(self, collision_nodes, message_type, messages):
         """Process received messages and build knowledge trees"""
         completed_messages_this_frame = []
         receiving_nodes = []
@@ -262,13 +270,13 @@ class MessageProcessor:
                         completed_messages_this_frame.append(message)
                         if message_type == "learning":
                             print(f"✅ Learning Message {message.id} completed at node {node_id}")
-                            # IMMEDIATE COLOR CLEANUP when message completes
-                            self._immediate_color_cleanup(message, message_type)
+                        # Clean up colors for completed message
+                        self._immediate_color_cleanup(message, message_type, messages)
         
         return completed_messages_this_frame
     
-    def _immediate_color_cleanup(self, completed_message, message_type):
-        """Immediately clean up colors when a message completes"""
+    def _immediate_color_cleanup(self, completed_message, message_type, all_messages):
+        """Immediately clean up colors when a message completes - FIXED VERSION"""
         if message_type == "learning":
             print(f"🧹 Immediate cleanup for Learning Message {completed_message.id}")
         else:
@@ -278,30 +286,16 @@ class MessageProcessor:
         target_id = completed_message.target
         
         # Check if source/target nodes have other active messages
-        if message_type == "learning":
-            # For learning messages, check only learning messages
-            source_has_other = any(
-                msg.is_active and not msg.is_completed and msg.source == source_id
-                for msg in self._get_messages_dict(message_type).values()
-                if msg != completed_message
-            )
-            target_has_other = any(
-                msg.is_active and not msg.is_completed and msg.target == target_id 
-                for msg in self._get_messages_dict(message_type).values()
-                if msg != completed_message
-            )
-        else:
-            # For comparison messages, check only comparison messages
-            source_has_other = any(
-                msg.is_active and not msg.is_completed and msg.source == source_id
-                for msg in self._get_messages_dict(message_type).values()
-                if msg != completed_message
-            )
-            target_has_other = any(
-                msg.is_active and not msg.is_completed and msg.target == target_id
-                for msg in self._get_messages_dict(message_type).values()
-                if msg != completed_message
-            )
+        source_has_other = any(
+            msg.is_active and not msg.is_completed and msg.source == source_id
+            for msg in all_messages.values()
+            if msg != completed_message
+        )
+        target_has_other = any(
+            msg.is_active and not msg.is_completed and msg.target == target_id 
+            for msg in all_messages.values()
+            if msg != completed_message
+        )
         
         # Clear colors if no other active messages
         if not source_has_other:
@@ -311,13 +305,6 @@ class MessageProcessor:
         if not target_has_other:
             self.network.nodes[target_id].set_as_target(False)
             print(f"  🎨 Cleared TARGET color from node {target_id}")
-    
-    def _get_messages_dict(self, message_type):
-        """Get the appropriate messages dictionary based on type"""
-        # This is a bit of a hack since MessageProcessor doesn't have direct access
-        # In a real implementation, we'd pass the messages dict as a parameter
-        # For now, we'll need to handle this in the calling code
-        return {}
     
     def _print_transmission_summary(self, sending_nodes, successful_receives, completed_messages, message_type):
         """Print summary of transmission results with enhanced statistics"""
