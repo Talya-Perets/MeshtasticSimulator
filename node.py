@@ -285,7 +285,7 @@ class Node:
         """Process all message copies received this frame with tree building"""
         processed_messages = []
         for message, sender_id, sender_path in self.received_messages:
-            
+
             # Create new path
             new_path = message.create_new_copy(sender_id, self.id, sender_path)
             
