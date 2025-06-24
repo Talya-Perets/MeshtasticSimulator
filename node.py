@@ -74,28 +74,31 @@ class Node:
        
     def receive_message_copy(self, message, sender_id, sender_path):
         """Receive a specific copy of a message with its path"""
-        # SMART FLOODING: Check if we already have this message
-        if hasattr(self, 'received_message_ids'):
-            if message.id in self.received_message_ids:
-                return False
-        else:
+        # Initialize sets if they don't exist
+        if not hasattr(self, 'received_message_ids'):
             self.received_message_ids = set()
-        
-        # Check duplicates
-        message_key = (message.id, sender_id)
-        if hasattr(self, 'seen_message_copies'):
-            if message_key in self.seen_message_copies:
-                return False
-        else:
+        if not hasattr(self, 'seen_message_copies'):
             self.seen_message_copies = set()
-            
-        # Accept the message
+        
+        # Check for exact duplicate from same sender
+        message_key = (message.id, sender_id)
+        if message_key in self.seen_message_copies:
+            return False  # אותה הודעה מאותו שולח - דחה
+        
+        # Accept the message (for statistics)
         self.seen_message_copies.add(message_key)
+        
+        # Check if we've processed this message before
+        if message.id in self.received_message_ids:
+            print(f"      📨 Node {self.id} received Message {message.id} again - already processed, won't forward")
+            return True  # ← שני לTrue! קיבלנו, פשוט לא נפיץ
+        
+        # First time seeing this message - accept and add for processing
         self.received_messages.append((message, sender_id, sender_path))
         self.received_message_ids.add(message.id)
+        print(f"      ✅ Node {self.id} received NEW Message {message.id} - will process and forward")
         
         return True
-
     def get_routing_decision(self, message, hop_limit_remaining, algorithm_mode="flooding"):
         """Routing decision based on selected algorithm"""
         source = message.source
@@ -409,7 +412,7 @@ class Node:
             return "red"
         elif self.status_flags[self.STATUS_COLLISION]:
             return "pink"
-        elif self.status_flags[self.STATUS_RECEIVING]:
+        elif self.status_flags[self.STATUS_SENDING]:
             return "orange"
         else:
             return "lightblue"

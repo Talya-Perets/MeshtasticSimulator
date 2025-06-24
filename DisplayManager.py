@@ -119,8 +119,8 @@ class DisplayManager:
             self.ax.add_patch(circle)
             
             # Add borders for special states
-            if (node.status_flags[node.STATUS_RECEIVING] and 
-                (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET])):
+            if (node.status_flags[node.STATUS_SENDING] and 
+                (node.status_flags[node.STATUS_SOURCE] or node.status_flags[node.STATUS_TARGET] or node.status_flags[node.STATUS_COLLISION] ) ):
                 border_circle = plt.Circle(pos, 0.15, fill=False, 
                                         edgecolor='orange', linewidth=3, zorder=4)
                 self.ax.add_patch(border_circle)

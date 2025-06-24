@@ -248,8 +248,9 @@ class Simulator:
         self.comparison_manager.current_frame = 0
         self.comparison_manager.reset_simulation()
         
-        # Set algorithm mode
+        # Set algorithm mode and name for statistics
         self._set_algorithm_mode("flooding")
+        self.comparison_manager.set_algorithm_name("Flooding")
         
         # Initialize display for comparison
         self.display_manager.initialize_display()
@@ -290,7 +291,7 @@ class Simulator:
         # Close display
         self.display_manager.close_display()
         self.is_running = True  # Reset for menu
-    
+
     def _run_tree_algorithm(self):
         """Run the tree-based algorithm"""
         print("Setting up tree-based algorithm simulation...")
@@ -299,8 +300,9 @@ class Simulator:
         self.comparison_manager.current_frame = 0
         self.comparison_manager.reset_simulation()
         
-        # Set algorithm mode
+        # Set algorithm mode and name for statistics
         self._set_algorithm_mode("tree")
+        self.comparison_manager.set_algorithm_name("Tree-Based")
         
         # Initialize display for comparison
         self.display_manager.initialize_display()
@@ -341,7 +343,7 @@ class Simulator:
         # Close display
         self.display_manager.close_display()
         self.is_running = True  # Reset for menu
-    
+
     def _run_comparison(self):
         """Run both algorithms and compare results"""
         print("Running comprehensive comparison of both algorithms...")
@@ -352,24 +354,26 @@ class Simulator:
         # Run flooding algorithm (fast mode)
         print("\n🌊 Running Flooding Algorithm (fast mode)...")
         self._set_algorithm_mode("flooding")
+        self.comparison_manager.set_algorithm_name("Flooding")
         flooding_stats = self._run_algorithm_fast("flooding")
         results["flooding"] = flooding_stats
         
         # Run tree algorithm (fast mode)
         print("\n🌳 Running Tree-Based Algorithm (fast mode)...")
         self._set_algorithm_mode("tree")
+        self.comparison_manager.set_algorithm_name("Tree-Based")
         tree_stats = self._run_algorithm_fast("tree")
         results["tree"] = tree_stats
         
         # Show comparison
         print("\n⚖️ ALGORITHM COMPARISON RESULTS")
-        print("="*60)
+        print("="*80)
         
-        self._show_algorithm_comparison(results)
+        self._show_detailed_algorithm_comparison(results)
         
-        print("="*60)
+        print("="*80)
         input("\nPress Enter to return to menu...")
-    
+        
     def _set_algorithm_mode(self, mode):
         """Set the algorithm mode for message processing"""
         # This will be used by MessageProcessor to decide routing strategy
@@ -379,7 +383,7 @@ class Simulator:
             self.message_processor.set_algorithm_mode(mode)
     
     def _run_algorithm_fast(self, algorithm_name):
-        """Run an algorithm in fast mode and return statistics"""
+        """Run an algorithm in fast mode and return detailed statistics"""
         # Reset comparison manager
         self.comparison_manager.current_frame = 0
         self.comparison_manager.reset_simulation()
@@ -392,18 +396,222 @@ class Simulator:
             if self.comparison_manager.current_frame > self.comparison_manager.total_frames:
                 break
         
-        # Extract statistics
-        stats = {
-            'algorithm': algorithm_name,
-            'total_messages': len(self.comparison_manager.messages),
-            'successful': self.comparison_manager.stats['messages_reached_target'],
-            'failed': self.comparison_manager.stats['messages_hop_limit_exceeded'],
-            'total_collisions': self.comparison_manager.stats['total_collisions'],
-            'frames_completed': self.comparison_manager.current_frame
-        }
+        # Get detailed statistics
+        detailed_stats = self.comparison_manager.get_detailed_statistics()
+        return detailed_stats
+
+    def _show_detailed_algorithm_comparison(self, results):
+        """Show comprehensive detailed comparison between algorithms"""
+        flooding = results["flooding"]
+        tree = results["tree"]
         
-        return stats
-    
+        print(f"\n📊 COMPREHENSIVE ALGORITHM COMPARISON")
+        print("=" * 80)
+        
+        # === MESSAGE-LEVEL STATISTICS ===
+        print("\n🎯 MESSAGE SUCCESS STATISTICS:")
+        print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
+        print("-" * 80)
+        
+        # Message success rate
+        flood_msg_success = flooding['success_rate']
+        tree_msg_success = tree['success_rate']
+        msg_winner = self._determine_winner(tree_msg_success, flood_msg_success, higher_better=True)
+        print(f"{'Message Success Rate (%)':<35} {flood_msg_success:<15.1f} {tree_msg_success:<15.1f} {msg_winner:<15}")
+        
+        # Successful vs failed messages
+        print(f"{'Successful Messages':<35} {flooding['successful']:<15} {tree['successful']:<15} {self._determine_winner(tree['successful'], flooding['successful'], higher_better=True):<15}")
+        print(f"{'Failed Messages':<35} {flooding['failed']:<15} {tree['failed']:<15} {self._determine_winner(tree['failed'], flooding['failed'], higher_better=False):<15}")
+        
+        # === NETWORK-LEVEL STATISTICS ===
+        print(f"\n🌐 NETWORK TRANSMISSION STATISTICS:")
+        print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
+        print("-" * 80)
+        
+        # Total transmissions
+        print(f"{'Total Transmissions Sent':<35} {flooding['total_transmissions_sent']:<15} {tree['total_transmissions_sent']:<15} {self._determine_winner(tree['total_transmissions_sent'], flooding['total_transmissions_sent'], higher_better=False):<15}")
+        print(f"{'Total Transmissions Received':<35} {flooding['total_transmissions_received']:<15} {tree['total_transmissions_received']:<15} {self._determine_winner(tree['total_transmissions_received'], flooding['total_transmissions_received'], higher_better=True):<15}")
+        
+        # Network efficiency
+        flood_net_eff = flooding['network_efficiency']
+        tree_net_eff = tree['network_efficiency']
+        net_eff_winner = self._determine_winner(tree_net_eff, flood_net_eff, higher_better=True)
+        print(f"{'Network Efficiency (%)':<35} {flood_net_eff:<15.1f} {tree_net_eff:<15.1f} {net_eff_winner:<15}")
+        
+        # Resource efficiency
+        flood_res_eff = flooding['resource_efficiency']
+        tree_res_eff = tree['resource_efficiency']
+        res_eff_winner = self._determine_winner(tree_res_eff, flood_res_eff, higher_better=True)
+        print(f"{'Resource Efficiency (%)':<35} {flood_res_eff:<15.3f} {tree_res_eff:<15.3f} {res_eff_winner:<15}")
+        
+        # === COLLISION AND PERFORMANCE STATISTICS ===
+        print(f"\n💥 COLLISION AND PERFORMANCE STATISTICS:")
+        print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
+        print("-" * 80)
+        
+        # Collisions
+        collision_winner = self._determine_winner(tree['total_collisions'], flooding['total_collisions'], higher_better=False)
+        print(f"{'Total Collisions':<35} {flooding['total_collisions']:<15} {tree['total_collisions']:<15} {collision_winner:<15}")
+        
+        # Completion time
+        time_winner = self._determine_winner(tree['frames_completed'], flooding['frames_completed'], higher_better=False)
+        print(f"{'Frames to Complete':<35} {flooding['frames_completed']:<15} {tree['frames_completed']:<15} {time_winner:<15}")
+        
+        # Average path length
+        flood_avg_path = flooding['average_path_length']
+        tree_avg_path = tree['average_path_length']
+        path_winner = self._determine_winner(tree_avg_path, flood_avg_path, higher_better=False)
+        print(f"{'Average Path Length':<35} {flood_avg_path:<15.1f} {tree_avg_path:<15.1f} {path_winner:<15}")
+        
+        # === DETAILED MESSAGE ANALYSIS ===
+        print(f"\n📋 DETAILED MESSAGE ANALYSIS:")
+        print("-" * 80)
+        
+        self._show_message_details_comparison(flooding, tree)
+        
+        # === OVERALL WINNER CALCULATION ===
+        print(f"\n🏆 OVERALL WINNER ANALYSIS:")
+        print("-" * 80)
+        
+        # Count wins in each category
+        winners = [
+            msg_winner,           # Message success rate
+            net_eff_winner,       # Network efficiency  
+            res_eff_winner,       # Resource efficiency
+            collision_winner,     # Collisions (fewer is better)
+            time_winner,          # Completion time (fewer is better)
+            path_winner           # Path length (shorter is better)
+        ]
+        
+        tree_wins = winners.count("Tree-Based")
+        flood_wins = winners.count("Flooding")
+        ties = winners.count("Tie")
+        
+        print(f"Tree-Based Algorithm Wins: {tree_wins}")
+        print(f"Flooding Algorithm Wins: {flood_wins}")
+        print(f"Ties: {ties}")
+        print()
+        
+        if tree_wins > flood_wins:
+            print("🌳 **TREE-BASED ALGORITHM** is the overall winner!")
+            print("   ✅ Better performance using learned knowledge trees")
+            print("   🎯 Smart routing decisions lead to more efficient network usage")
+        elif flood_wins > tree_wins:
+            print("🌊 **FLOODING ALGORITHM** is the overall winner!")
+            print("   ✅ Simple flooding proves more effective for this scenario")
+            print("   📡 Pure flooding approach handles network conditions better")
+        else:
+            print("🤝 **IT'S A TIE!**")
+            print("   ⚖️ Both algorithms performed similarly in this scenario")
+            print("   🔄 Different network conditions might favor one over the other")
+        
+        # === INSIGHTS AND RECOMMENDATIONS ===
+        print(f"\n💡 INSIGHTS AND RECOMMENDATIONS:")
+        print("-" * 80)
+        self._provide_algorithm_insights(flooding, tree)
+
+    def _show_message_details_comparison(self, flooding_stats, tree_stats):
+        """Show detailed comparison of individual message performance"""
+        print("Individual Message Performance:")
+        print()
+        
+        # Show message success details
+        flood_messages = flooding_stats['message_details']
+        tree_messages = tree_stats['message_details']
+        
+        print(f"{'Message':<10} {'Route':<15} {'Flooding Result':<20} {'Tree Result':<20} {'Better':<10}")
+        print("-" * 80)
+        
+        for i in range(len(flood_messages)):
+            flood_msg = flood_messages[i]
+            tree_msg = tree_messages[i]
+            
+            flood_result = "SUCCESS" if flood_msg['success'] else "FAILED"
+            tree_result = "SUCCESS" if tree_msg['success'] else "FAILED"
+            
+            # Determine which performed better for this message
+            if flood_msg['success'] and tree_msg['success']:
+                # Both succeeded - compare path length or transmissions
+                if flood_msg['path_length'] == tree_msg['path_length']:
+                    better = "Tie"
+                elif flood_msg['path_length'] < tree_msg['path_length']:
+                    better = "Flooding"
+                else:
+                    better = "Tree"
+            elif flood_msg['success'] and not tree_msg['success']:
+                better = "Flooding"
+            elif tree_msg['success'] and not flood_msg['success']:
+                better = "Tree"
+            else:
+                better = "Both Failed"
+            
+            print(f"{'Msg ' + str(flood_msg['id']):<10} {flood_msg['route']:<15} {flood_result:<20} {tree_result:<20} {better:<10}")
+        
+        print()
+
+    def _provide_algorithm_insights(self, flooding_stats, tree_stats):
+        """Provide insights and recommendations based on the comparison"""
+        insights = []
+        
+        # Network efficiency insight
+        if tree_stats['network_efficiency'] > flooding_stats['network_efficiency'] * 1.1:
+            insights.append("🎯 Tree-based algorithm shows significantly better network efficiency")
+            insights.append("   → Knowledge trees help avoid unnecessary transmissions")
+        elif flooding_stats['network_efficiency'] > tree_stats['network_efficiency'] * 1.1:
+            insights.append("📡 Flooding algorithm shows better network efficiency")
+            insights.append("   → Simple flooding works well for this network topology")
+        
+        # Path length insight
+        if tree_stats['average_path_length'] < flooding_stats['average_path_length'] * 0.9:
+            insights.append("🛤️ Tree-based algorithm finds shorter paths on average")
+            insights.append("   → Knowledge trees enable more direct routing")
+        elif flooding_stats['average_path_length'] < tree_stats['average_path_length'] * 0.9:
+            insights.append("🔄 Flooding algorithm achieves shorter paths")
+            insights.append("   → Multiple parallel paths help find efficient routes")
+        
+        # Collision insight
+        total_transmissions_diff = abs(tree_stats['total_transmissions_sent'] - flooding_stats['total_transmissions_sent'])
+        if total_transmissions_diff > max(tree_stats['total_transmissions_sent'], flooding_stats['total_transmissions_sent']) * 0.2:
+            if tree_stats['total_transmissions_sent'] < flooding_stats['total_transmissions_sent']:
+                insights.append("🔇 Tree-based algorithm significantly reduces network traffic")
+                insights.append("   → Smart routing decisions minimize unnecessary transmissions")
+            else:
+                insights.append("📢 Flooding algorithm uses more network resources")
+                insights.append("   → Higher transmission volume may indicate less efficient routing")
+        
+        # Success rate insight
+        success_diff = abs(tree_stats['success_rate'] - flooding_stats['success_rate'])
+        if success_diff > 10:  # More than 10% difference
+            if tree_stats['success_rate'] > flooding_stats['success_rate']:
+                insights.append("✅ Tree-based algorithm has significantly higher success rate")
+                insights.append("   → Learned knowledge improves message delivery reliability")
+            else:
+                insights.append("🌊 Flooding algorithm achieves higher success rate")
+                insights.append("   → Redundant paths improve delivery reliability")
+        
+        # Print insights
+        if insights:
+            for insight in insights:
+                print(insight)
+        else:
+            print("📊 Both algorithms performed very similarly in this scenario")
+            print("🔬 Try running with different network configurations for clearer differences")
+        
+        print()
+        print("💭 GENERAL RECOMMENDATIONS:")
+        print("• Tree-based routing works best in stable networks with good connectivity")
+        print("• Flooding is more robust in dynamic or uncertain network conditions")
+        print("• Consider hybrid approaches that combine both strategies")
+
+    def _determine_winner(self, value1, value2, higher_better=True):
+        """Determine winner between two values"""
+        if abs(value1 - value2) < 0.001:  # Essentially equal
+            return "Tie"
+        
+        if higher_better:
+            return "Tree-Based" if value1 > value2 else "Flooding"
+        else:
+            return "Tree-Based" if value1 < value2 else "Flooding"
     def _show_algorithm_comparison(self, results):
         """Show detailed comparison between algorithms"""
         flooding = results["flooding"]

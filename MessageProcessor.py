@@ -2,6 +2,7 @@ class MessageProcessor:
     """
     Handles message transmission, collision detection, and reception processing
     Shared logic for both learning and comparison phases
+    Enhanced with detailed statistics tracking
     """
     
     def __init__(self, network):
@@ -13,13 +14,14 @@ class MessageProcessor:
         self.algorithm_mode = mode
         print(f"🔧 MessageProcessor algorithm mode set to: {mode}")
         
-    def process_transmissions(self, messages, message_type="learning"):
+    def process_transmissions(self, messages, message_type="learning", stats_manager=None):
         """
         Process all message transmissions for current frame
         
         Args:
             messages: Dictionary of messages to process
             message_type: "learning" or "comparison" for different handling
+            stats_manager: ComparisonPhaseManager for statistics tracking (optional)
             
         Returns:
             tuple: (transmission_queue, sending_nodes, successful_receives, completed_messages)
@@ -36,6 +38,11 @@ class MessageProcessor:
         
         # Phase 4: Process received messages and build knowledge trees
         completed_messages = self._process_received_messages(collision_nodes, message_type)
+        
+        # Phase 5: Record statistics if stats manager provided (for comparison phase)
+        if stats_manager and message_type == "comparison":
+            collision_count = len(collision_nodes)
+            stats_manager.record_transmission_statistics(transmission_queue, successful_receives, collision_count)
         
         # Print summary
         self._print_transmission_summary(sending_nodes, successful_receives, completed_messages, message_type)
@@ -172,17 +179,8 @@ class MessageProcessor:
                 # Comparison phase uses the selected algorithm
                 algorithm_mode = self.algorithm_mode
             
-            # Get routing decision based on algorithm
             valid_neighbors = sender_node.get_routing_decision(message, local_hop_limit, algorithm_mode)
             
-            # Remove ping-pong (don't send back to sender from last hop)
-            if len(current_path) > 1:
-                sender_from_last_hop = current_path[-2]
-                if sender_from_last_hop in valid_neighbors:
-                    valid_neighbors.remove(sender_from_last_hop)
-                    print(f"      ⏪ Skipping ping-pong back to {sender_from_last_hop}")
-            
-            # Create transmissions to all valid neighbors
             for neighbor_id in valid_neighbors:
                 transmissions.append((sender_id, neighbor_id, message, current_path, local_hop_limit))
         
@@ -322,7 +320,7 @@ class MessageProcessor:
         return {}
     
     def _print_transmission_summary(self, sending_nodes, successful_receives, completed_messages, message_type):
-        """Print summary of transmission results"""
+        """Print summary of transmission results with enhanced statistics"""
         if sending_nodes:
             algorithm_text = f"({self.algorithm_mode})" if message_type == "comparison" else ""
             print(f"{message_type.title()} transmissions {algorithm_text} from nodes: {sending_nodes}")
