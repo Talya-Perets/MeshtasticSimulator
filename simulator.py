@@ -23,33 +23,39 @@ class Simulator:
         
         # Simulation control
         self.is_running = False
-        self.skip_learning_display = False
         
         # Set up display callback
         self.display_manager.set_key_callback(self.on_key_press)
         
-    def setup_simulation(self, num_nodes, num_messages, total_frames=60, skip_learning=False):
+    def setup_simulation(self, num_nodes, num_messages, total_frames=60):
         """Initialize simulation with user parameters"""
-        # Use deterministic seed based on node count
         
-        self.skip_learning_display = skip_learning
         self.num_comparison_messages = num_messages  # Store for later
         self.comparison_total_frames = total_frames  # Store for later
         
         print(f"Setting up simulation: {num_nodes} nodes")
-        print(f"📚 Learning phase will be set up first")
-        print(f"🔬 Comparison phase ({num_messages} messages, {total_frames} frames) will be set up after learning")
+        print(f"📚 Learning phase can be set up when chosen from menu")
+        print(f"🔬 Comparison phase ({num_messages} messages, {total_frames} frames) parameters stored")
         
         # Create network
         self.network.create_nodes(num_nodes)
         self.network.create_network_connections()
         
-        # Generate ONLY learning messages for now
+        # Print basic setup summary
+        self._print_basic_setup_summary()
+        
+        print("Basic simulation setup complete!")
+        
+    def setup_learning_phase(self):
+        """Setup learning phase when chosen from menu"""
+        print(f"\n📚 Setting up learning phase...")
+        
+        num_nodes = len(self.network.nodes)
+        
+        # Generate learning messages
         learning_frames = self.learning_manager.generate_learning_messages(num_nodes)
         
-        # DON'T generate comparison messages yet - wait until learning is done
-        
-        # Print setup summary for learning phase only
+        # Print setup summary for learning phase
         self._print_learning_setup_summary()
         
         print("Learning phase setup complete!")
@@ -73,6 +79,18 @@ class Simulator:
         self._print_comparison_setup_summary()
         
         print("Comparison phase setup complete!")
+    
+    def _print_basic_setup_summary(self):
+        """Print summary of basic setup"""
+        print("\n" + "="*50)
+        print("BASIC SIMULATION SETUP SUMMARY")
+        print("="*50)
+        
+        self.network.print_network_summary()
+        print(f"Comparison Messages (planned): {self.num_comparison_messages}")
+        print(f"Comparison Frames (planned): {self.comparison_total_frames}")
+        
+        print("="*50)
     
     def _print_learning_setup_summary(self):
         """Print summary of learning phase setup"""
@@ -131,80 +149,53 @@ class Simulator:
             if total_frames < 10:
                 print("Using minimum: 60 frames")
                 total_frames = 60
-            
-            # Ask about learning phase display
-            learning_choice = input("\nShow learning phase step-by-step? (y/n, default=n): ").lower().strip()
-            skip_learning = learning_choice not in ['y', 'yes']
-            
-            if skip_learning:
-                print("✅ Learning will run in fast mode (results only)")
-            else:
-                print("✅ Learning will be shown step-by-step")
                 
         except ValueError:
             print("Invalid input, using defaults: 10 nodes, 5 messages, 60 frames")
-            num_nodes, num_messages, total_frames, skip_learning = 10, 5, 60, True
+            num_nodes, num_messages, total_frames = 10, 5, 60
             
-        return num_nodes, num_messages, total_frames, skip_learning
+        return num_nodes, num_messages, total_frames
     
     def run_simulation(self):
-        """Run the complete simulation - FIRST learning, THEN algorithm selection"""
+        """Run the complete simulation with 5-option menu"""
         print("\n" + "="*60)
-        print("🚀 STARTING NETWORK LEARNING SIMULATION")
+        print("🚀 STARTING NETWORK FLOODING SIMULATION")
         print("="*60)
-        print("Phase 1: Learning phase - building knowledge trees")
-        print("Phase 2: Algorithm selection and comparison")
+        print("Available phases:")
+        print("1. Learning phase - building knowledge trees")
+        print("2. Flooding algorithm")
+        print("3. Tree-based algorithm") 
+        print("4. Algorithm comparison")
+        print("5. Exit")
         print("="*60)
         
-        # Initialize display
-        self.display_manager.initialize_display()
-        self.is_running = True
-        
-        # === PHASE 1: LEARNING PHASE ===
-        print("\n🎓 PHASE 1: LEARNING PHASE")
-        print("-" * 40)
-        
-        if not self.learning_manager.learning_complete:
-            if not self.skip_learning_display:
-                # Interactive learning phase
-                self._run_interactive_learning()
-            else:
-                # Fast learning phase
-                self._run_fast_learning()
-        
-        if not self.is_running:
-            return
-        
-        # Learning phase completed - show results
-        print("\n✅ LEARNING PHASE COMPLETED!")
-        
-        # Close the display window
-        self.display_manager.close_display()
-        
-        # === PHASE 2: ALGORITHM SELECTION ===
-        print("\n🔬 PHASE 2: ALGORITHM SELECTION")
-        print("-" * 40)
-        
-        # Setup comparison phase (generate test messages)
-        self.setup_comparison_phase()
-        
-        # Show algorithm selection menu
+        # Show main menu loop
         while True:
-            choice = self._show_algorithm_menu()
+            choice = self._show_main_menu()
             
             if choice == "1":
+                # Run Learning Phase
+                print("\n📚 Running LEARNING Phase...")
+                self._run_learning_phase()
+            elif choice == "2":
                 # Run Flooding Algorithm
                 print("\n🌊 Running FLOODING Algorithm...")
+                if not self.learning_manager.learning_complete:
+                    print("⚠️  Note: Running without learning phase (knowledge trees)")
                 self._run_flooding_algorithm()
-            elif choice == "2":
+            elif choice == "3":
                 # Run Tree-Based Algorithm
                 print("\n🌳 Running TREE-BASED Algorithm...")
+                if not self.learning_manager.learning_complete:
+                    print("⚠️  Warning: No learning completed! Tree algorithm may not work optimally.")
                 self._run_tree_algorithm()
-            elif choice == "3":
-                # Run Both and Compare
-                print("\n⚖️ Running BOTH algorithms for comparison...")
-                self._run_comparison()
             elif choice == "4":
+                # Run Both and Compare
+                print("\n⚖️ Running ALGORITHM COMPARISON...")
+                if not self.learning_manager.learning_complete:
+                    print("⚠️  Note: Comparing without learning phase")
+                self._run_comparison()
+            elif choice == "5":
                 # Exit
                 print("\n👋 Exiting simulation. Goodbye!")
                 break
@@ -213,36 +204,82 @@ class Simulator:
         
         print("✅ SIMULATION COMPLETED!")
     
-    def _show_algorithm_menu(self):
-        """Show algorithm selection menu and get user choice"""
+    def _show_main_menu(self):
+        """Show main menu and get user choice"""
         print("\n" + "="*50)
-        print("🧠 ALGORITHM SELECTION MENU")
+        print("🧠 MAIN SIMULATION MENU")
         print("="*50)
-        print("Choose which algorithm to run:")
+        print("Choose what to run:")
         print()
-        print("1️⃣  Flooding Algorithm")
+        print("1️⃣  Learning Phase")
+        print("    📚 Build knowledge trees through message passing")
+        print("    🎓 Required for optimal tree-based algorithm")
+        learning_status = "✅ Completed" if self.learning_manager.learning_complete else "❌ Not run"
+        print(f"    Status: {learning_status}")
+        print()
+        print("2️⃣  Flooding Algorithm")
         print("    📡 Every node forwards to all neighbors")
         print("    🌊 Pure flooding approach")
         print()
-        print("2️⃣  Tree-Based Algorithm") 
+        print("3️⃣  Tree-Based Algorithm") 
         print("    🌳 Uses learned knowledge trees")
         print("    🎯 Smart routing decisions")
+        if not self.learning_manager.learning_complete:
+            print("    ⚠️  Requires learning phase for optimal performance")
         print()
-        print("3️⃣  Compare Both Algorithms")
+        print("4️⃣  Compare Both Algorithms")
         print("    ⚖️  Run both and show comparison")
         print("    📊 Performance analysis")
         print()
-        print("4️⃣  Exit")
+        print("5️⃣  Exit")
         print("    👋 End simulation")
         print()
         print("="*50)
         
-        choice = input("Enter your choice (1-4): ").strip()
+        choice = input("Enter your choice (1-5): ").strip()
         return choice
+    
+    def _run_learning_phase(self):
+        """Run the learning phase"""
+        if self.learning_manager.learning_complete:
+            print("📚 Learning phase already completed!")
+            rerun = input("Do you want to run it again? (y/n): ").lower().strip()
+            if rerun not in ['y', 'yes']:
+                return
+            else:
+                # Reset learning phase
+                self.learning_manager.learning_complete = False
+                self.learning_manager.current_frame = 0
+        
+        # Setup learning phase
+        self.setup_learning_phase()
+        
+        # Ask how to run learning
+        print("\n📚 LEARNING PHASE OPTIONS:")
+        print("1. Interactive mode (step-by-step)")
+        print("2. Fast mode (automatic)")
+        
+        while True:
+            mode_choice = input("Choose mode (1 or 2): ").strip()
+            if mode_choice == "1":
+                self._run_interactive_learning()
+                break
+            elif mode_choice == "2":
+                self._run_fast_learning()
+                break
+            else:
+                print("❌ Invalid choice. Please enter 1 or 2.")
+        
+        print("\n✅ LEARNING PHASE COMPLETED!")
+        input("Press Enter to return to main menu...")
     
     def _run_flooding_algorithm(self):
         """Run the flooding algorithm"""
         print("Setting up flooding algorithm simulation...")
+        
+        # Setup comparison phase if not already done
+        if not hasattr(self.comparison_manager, 'messages') or not self.comparison_manager.messages:
+            self.setup_comparison_phase()
         
         # Reset comparison manager
         self.comparison_manager.current_frame = 0
@@ -291,10 +328,15 @@ class Simulator:
         # Close display
         self.display_manager.close_display()
         self.is_running = True  # Reset for menu
+        input("Press Enter to return to main menu...")
 
     def _run_tree_algorithm(self):
         """Run the tree-based algorithm"""
         print("Setting up tree-based algorithm simulation...")
+        
+        # Setup comparison phase if not already done
+        if not hasattr(self.comparison_manager, 'messages') or not self.comparison_manager.messages:
+            self.setup_comparison_phase()
         
         # Reset comparison manager
         self.comparison_manager.current_frame = 0
@@ -343,11 +385,16 @@ class Simulator:
         # Close display
         self.display_manager.close_display()
         self.is_running = True  # Reset for menu
+        input("Press Enter to return to main menu...")
 
     def _run_comparison(self):
         """Run both algorithms and compare results"""
         print("Running comprehensive comparison of both algorithms...")
         print("This will take a moment...")
+        
+        # Setup comparison phase if not already done
+        if not hasattr(self.comparison_manager, 'messages') or not self.comparison_manager.messages:
+            self.setup_comparison_phase()
         
         results = {}
         
@@ -372,7 +419,7 @@ class Simulator:
         self._show_detailed_algorithm_comparison(results)
         
         print("="*80)
-        input("\nPress Enter to return to menu...")
+        input("\nPress Enter to return to main menu...")
         
     def _set_algorithm_mode(self, mode):
         """Set the algorithm mode for message processing"""
@@ -612,58 +659,14 @@ class Simulator:
             return "Tree-Based" if value1 > value2 else "Flooding"
         else:
             return "Tree-Based" if value1 < value2 else "Flooding"
-    def _show_algorithm_comparison(self, results):
-        """Show detailed comparison between algorithms"""
-        flooding = results["flooding"]
-        tree = results["tree"]
-        
-        print(f"\n📊 PERFORMANCE COMPARISON:")
-        print(f"{'Metric':<25} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<10}")
-        print("-" * 70)
-        
-        # Success rate
-        flood_success_rate = (flooding['successful'] / flooding['total_messages']) * 100
-        tree_success_rate = (tree['successful'] / tree['total_messages']) * 100
-        success_winner = "Tree-Based" if tree_success_rate > flood_success_rate else "Flooding" if flood_success_rate > tree_success_rate else "Tie"
-        print(f"{'Success Rate (%)':<25} {flood_success_rate:<15.1f} {tree_success_rate:<15.1f} {success_winner:<10}")
-        
-        # Total collisions
-        collision_winner = "Tree-Based" if tree['total_collisions'] < flooding['total_collisions'] else "Flooding" if flooding['total_collisions'] < tree['total_collisions'] else "Tie"
-        print(f"{'Total Collisions':<25} {flooding['total_collisions']:<15} {tree['total_collisions']:<15} {collision_winner:<10}")
-        
-        # Completion time
-        time_winner = "Tree-Based" if tree['frames_completed'] < flooding['frames_completed'] else "Flooding" if flooding['frames_completed'] < tree['frames_completed'] else "Tie"
-        print(f"{'Frames to Complete':<25} {flooding['frames_completed']:<15} {tree['frames_completed']:<15} {time_winner:<10}")
-        
-        # Failed messages
-        fail_winner = "Tree-Based" if tree['failed'] < flooding['failed'] else "Flooding" if flooding['failed'] < tree['failed'] else "Tie"
-        print(f"{'Failed Messages':<25} {flooding['failed']:<15} {tree['failed']:<15} {fail_winner:<10}")
-        
-        print(f"\n🏆 OVERALL WINNER:")
-        winners = [success_winner, collision_winner, time_winner, fail_winner]
-        tree_wins = winners.count("Tree-Based")
-        flood_wins = winners.count("Flooding")
-        
-        if tree_wins > flood_wins:
-            print("🌳 TREE-BASED ALGORITHM is the overall winner!")
-            print("   ✅ Better performance using learned knowledge")
-        elif flood_wins > tree_wins:
-            print("🌊 FLOODING ALGORITHM is the overall winner!")
-            print("   ✅ Simple flooding proves more effective")
-        else:
-            print("🤝 It's a TIE!")
-            print("   ⚖️ Both algorithms performed similarly") 
-        print("\n🔬 PHASE 3: COMPARISON PHASE EXECUTION")
-        print("-" * 40)
-        
-        # Run comparison phase
-        self._run_comparison_phase()
-        
-        print("✅ SIMULATION COMPLETED!")
     
     def _run_interactive_learning(self):
         """Run learning phase interactively (step by step)"""
         print("Setting up interactive learning phase...")
+        
+        # Initialize display
+        self.display_manager.initialize_display()
+        self.is_running = True
         
         print("\n📚 LEARNING PHASE CONTROLS:")
         print("  SPACE: Advance to next learning frame")
@@ -690,6 +693,9 @@ class Simulator:
         # Show final results if completed
         if self.learning_manager.learning_complete:
             self.learning_manager.show_final_results()
+        
+        # Close display
+        self.display_manager.close_display()
     
     def _run_fast_learning(self):
         """Run learning phase in fast mode (no display)"""
@@ -730,42 +736,6 @@ class Simulator:
         self.learning_manager.learning_complete = True
         self.learning_manager.clean_up_colors()
         self.learning_manager.show_final_results()
-    
-    def _run_comparison_phase(self):
-        """Run the comparison phase interactively"""
-        print("This phase will compare flooding vs tree-based algorithms")
-        print("using the knowledge trees built in the learning phase.")
-        
-        # Reset for comparison phase
-        self.comparison_manager.current_frame = 0
-        
-        # Set display mode
-        self.display_manager.set_mode("comparison", 
-                                    self.comparison_manager.current_frame, 
-                                    self.comparison_manager.total_frames)
-        
-        # Update display for comparison
-        self.display_manager.update_display(self.comparison_manager.messages, "comparison")
-        
-        print("\n🔬 COMPARISON READY!")
-        print("Controls:")
-        print("  SPACE: Advance to next frame")
-        print("  Q: Quit simulation")
-        print("  R: Reset simulation")
-        print("\nClick on the simulation window and press SPACE to begin comparison!")
-        
-        # Keep the simulation running until user quits
-        try:
-            while self.is_running:
-                import matplotlib.pyplot as plt
-                plt.pause(0.1)
-                
-                if not plt.get_fignums():
-                    self.is_running = False
-                    break
-                    
-        except KeyboardInterrupt:
-            print("\nSimulation interrupted")
     
     def on_key_press(self, event):
         """Handle keyboard input from display manager"""

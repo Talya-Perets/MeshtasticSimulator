@@ -16,7 +16,7 @@ class Network:
     # Fixed seeds for reproducible graph layouts
     FIXED_SEEDS = {
         10: 5678,   # Seed for 10-node graphs - compact cluster
-        50: 5678,   # Seed for 50-node graphs - medium complexity
+        50: 230,   # Seed for 50-node graphs - medium complexity
         100: 5678   # Seed for 100-node graphs - well distributed, normal connectivity
     }
     
