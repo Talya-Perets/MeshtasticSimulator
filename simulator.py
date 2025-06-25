@@ -30,12 +30,11 @@ class Simulator:
     def setup_simulation(self, num_nodes, num_messages, total_frames=60):
         """Initialize simulation with user parameters"""
         
-        self.num_comparison_messages = num_messages  # Store for later
-        self.comparison_total_frames = total_frames  # Store for later
+        self.num_comparison_messages = num_messages
+        self.comparison_total_frames = total_frames
         
-        print(f"Setting up simulation: {num_nodes} nodes")
-        print(f"📚 Learning phase can be set up when chosen from menu")
-        print(f"🔬 Comparison phase ({num_messages} messages, {total_frames} frames) parameters stored")
+        print(f"Setting up simulation with {num_nodes} nodes")
+        print(f"Parameters: {num_messages} messages, {total_frames} frames")
         
         # Create network
         self.network.create_nodes(num_nodes)
@@ -44,11 +43,11 @@ class Simulator:
         # Print basic setup summary
         self._print_basic_setup_summary()
         
-        print("Basic simulation setup complete!")
+        print("Basic simulation setup complete")
         
     def setup_learning_phase(self):
         """Setup learning phase when chosen from menu"""
-        print(f"\n📚 Setting up learning phase...")
+        print("Setting up learning phase...")
         
         num_nodes = len(self.network.nodes)
         
@@ -58,19 +57,17 @@ class Simulator:
         # Print setup summary for learning phase
         self._print_learning_setup_summary()
         
-        print("Learning phase setup complete!")
+        print("Learning phase setup complete")
         return learning_frames
     
     def setup_comparison_phase(self):
         """Setup comparison phase after learning is complete"""
-        print(f"\n🔬 Setting up comparison phase...")
+        print("Setting up comparison phase...")
         
         # Set the total_frames FIRST before generating messages
         self.comparison_manager.total_frames = self.comparison_total_frames
         
-        print(f"📊 Using parameters from initial setup:")
-        print(f"  • Messages: {self.num_comparison_messages}")  
-        print(f"  • Total frames: {self.comparison_total_frames}")
+        print(f"Using {self.num_comparison_messages} messages and {self.comparison_total_frames} frames")
         
         # NOW generate comparison messages using the correct total_frames
         self.comparison_manager.generate_comparison_messages(self.num_comparison_messages)
@@ -78,42 +75,41 @@ class Simulator:
         # Print setup summary for comparison phase
         self._print_comparison_setup_summary()
         
-        print("Comparison phase setup complete!")
+        print("Comparison phase setup complete")
     
     def _print_basic_setup_summary(self):
         """Print summary of basic setup"""
         print("\n" + "="*50)
-        print("BASIC SIMULATION SETUP SUMMARY")
+        print("SIMULATION SETUP SUMMARY")
         print("="*50)
         
         self.network.print_network_summary()
-        print(f"Comparison Messages (planned): {self.num_comparison_messages}")
-        print(f"Comparison Frames (planned): {self.comparison_total_frames}")
+        print(f"Planned comparison messages: {self.num_comparison_messages}")
+        print(f"Planned comparison frames: {self.comparison_total_frames}")
         
         print("="*50)
     
     def _print_learning_setup_summary(self):
         """Print summary of learning phase setup"""
         print("\n" + "="*50)
-        print("LEARNING PHASE SETUP SUMMARY")
+        print("LEARNING PHASE SETUP")
         print("="*50)
         
-        self.network.print_network_summary()
-        print(f"Learning Messages: {len(self.learning_manager.learning_messages)}")
-        print(f"Learning Frames: {self.learning_manager.learning_frames}")
+        print(f"Learning messages: {len(self.learning_manager.learning_messages)}")
+        print(f"Learning frames: {self.learning_manager.learning_frames}")
         
         print("="*50)
     
     def _print_comparison_setup_summary(self):
         """Print summary of comparison phase setup"""
         print("\n" + "="*50)
-        print("COMPARISON PHASE SETUP SUMMARY")
+        print("COMPARISON PHASE SETUP")
         print("="*50)
         
-        print(f"Comparison Messages: {len(self.comparison_manager.messages)}")
-        print(f"Comparison Frames: {self.comparison_manager.total_frames}")
+        print(f"Comparison messages: {len(self.comparison_manager.messages)}")
+        print(f"Comparison frames: {self.comparison_manager.total_frames}")
         
-        print("\nComparison Messages Details:")
+        print("\nMessage details:")
         for msg_id, message in self.comparison_manager.messages.items():
             print(f"  {message}")
             
@@ -126,18 +122,18 @@ class Simulator:
         
         # Show only supported fixed graph options
         fixed_sizes = self.network.get_supported_fixed_sizes()
-        print(f"🎯 Available graph sizes: {fixed_sizes}")
-        print("Each size has an optimized layout for learning message passing algorithms")
+        print(f"Available graph sizes: {fixed_sizes}")
+        print("Each size has an optimized layout for message passing algorithms")
         print()
         
         try:
             while True:
                 num_nodes = int(input("Enter number of nodes (10, 50, or 100): "))
                 if num_nodes in fixed_sizes:
-                    print(f"✅ Using optimized layout for {num_nodes} nodes")
+                    print(f"Using optimized layout for {num_nodes} nodes")
                     break
                 else:
-                    print(f"❌ Only sizes {fixed_sizes} are supported. Please choose one of these.")
+                    print(f"Only sizes {fixed_sizes} are supported. Please choose one of these.")
                     continue
                 
             num_messages = int(input("Enter number of messages: "))
@@ -159,14 +155,14 @@ class Simulator:
     def run_simulation(self):
         """Run the complete simulation with 5-option menu"""
         print("\n" + "="*60)
-        print("🚀 STARTING NETWORK FLOODING SIMULATION")
+        print("NETWORK FLOODING SIMULATION")
         print("="*60)
-        print("Available phases:")
-        print("1. Learning phase - building knowledge trees")
-        print("2. Flooding algorithm")
-        print("3. Tree-based algorithm") 
-        print("4. Algorithm comparison")
-        print("5. Exit")
+        print("Available operations:")
+        print("1. Learning phase - build knowledge trees")
+        print("2. Flooding algorithm - pure flooding approach")
+        print("3. Tree-based algorithm - smart routing with learned knowledge") 
+        print("4. Algorithm comparison - run both and compare results")
+        print("5. Exit simulation")
         print("="*60)
         
         # Show main menu loop
@@ -174,66 +170,45 @@ class Simulator:
             choice = self._show_main_menu()
             
             if choice == "1":
-                # Run Learning Phase
-                print("\n📚 Running LEARNING Phase...")
+                print("\nRunning Learning Phase...")
                 self._run_learning_phase()
             elif choice == "2":
-                # Run Flooding Algorithm
-                print("\n🌊 Running FLOODING Algorithm...")
+                print("\nRunning Flooding Algorithm...")
                 if not self.learning_manager.learning_complete:
-                    print("⚠️  Note: Running without learning phase (knowledge trees)")
+                    print("Note: Running without learning phase (no knowledge trees)")
                 self._run_flooding_algorithm()
             elif choice == "3":
-                # Run Tree-Based Algorithm
-                print("\n🌳 Running TREE-BASED Algorithm...")
+                print("\nRunning Tree-Based Algorithm...")
                 if not self.learning_manager.learning_complete:
-                    print("⚠️  Warning: No learning completed! Tree algorithm may not work optimally.")
+                    print("Warning: No learning completed! Tree algorithm may not work optimally.")
                 self._run_tree_algorithm()
             elif choice == "4":
-                # Run Both and Compare
-                print("\n⚖️ Running ALGORITHM COMPARISON...")
+                print("\nRunning Algorithm Comparison...")
                 if not self.learning_manager.learning_complete:
-                    print("⚠️  Note: Comparing without learning phase")
+                    print("Note: Comparing without learning phase")
                 self._run_comparison()
             elif choice == "5":
-                # Exit
-                print("\n👋 Exiting simulation. Goodbye!")
+                print("\nExiting simulation.")
                 break
             else:
-                print("❌ Invalid choice. Please try again.")
+                print("Invalid choice. Please try again.")
         
-        print("✅ SIMULATION COMPLETED!")
+        print("Simulation completed.")
     
     def _show_main_menu(self):
         """Show main menu and get user choice"""
         print("\n" + "="*50)
-        print("🧠 MAIN SIMULATION MENU")
+        print("SIMULATION MENU")
         print("="*50)
-        print("Choose what to run:")
-        print()
-        print("1️⃣  Learning Phase")
-        print("    📚 Build knowledge trees through message passing")
-        print("    🎓 Required for optimal tree-based algorithm")
-        learning_status = "✅ Completed" if self.learning_manager.learning_complete else "❌ Not run"
-        print(f"    Status: {learning_status}")
-        print()
-        print("2️⃣  Flooding Algorithm")
-        print("    📡 Every node forwards to all neighbors")
-        print("    🌊 Pure flooding approach")
-        print()
-        print("3️⃣  Tree-Based Algorithm") 
-        print("    🌳 Uses learned knowledge trees")
-        print("    🎯 Smart routing decisions")
-        if not self.learning_manager.learning_complete:
-            print("    ⚠️  Requires learning phase for optimal performance")
-        print()
-        print("4️⃣  Compare Both Algorithms")
-        print("    ⚖️  Run both and show comparison")
-        print("    📊 Performance analysis")
-        print()
-        print("5️⃣  Exit")
-        print("    👋 End simulation")
-        print()
+        
+        learning_status = "Completed" if self.learning_manager.learning_complete else "Not run"
+        
+        print("1. Learning Phase")
+        print(f"   Status: {learning_status}")
+        print("2. Flooding Algorithm")
+        print("3. Tree-Based Algorithm") 
+        print("4. Compare Both Algorithms")
+        print("5. Exit")
         print("="*50)
         
         choice = input("Enter your choice (1-5): ").strip()
@@ -242,7 +217,7 @@ class Simulator:
     def _run_learning_phase(self):
         """Run the learning phase"""
         if self.learning_manager.learning_complete:
-            print("📚 Learning phase already completed!")
+            print("Learning phase already completed.")
             rerun = input("Do you want to run it again? (y/n): ").lower().strip()
             if rerun not in ['y', 'yes']:
                 return
@@ -255,7 +230,7 @@ class Simulator:
         self.setup_learning_phase()
         
         # Ask how to run learning
-        print("\n📚 LEARNING PHASE OPTIONS:")
+        print("\nLearning phase options:")
         print("1. Interactive mode (step-by-step)")
         print("2. Fast mode (automatic)")
         
@@ -268,9 +243,9 @@ class Simulator:
                 self._run_fast_learning()
                 break
             else:
-                print("❌ Invalid choice. Please enter 1 or 2.")
+                print("Invalid choice. Please enter 1 or 2.")
         
-        print("\n✅ LEARNING PHASE COMPLETED!")
+        print("\nLearning phase completed.")
         input("Press Enter to return to main menu...")
     
     def _run_flooding_algorithm(self):
@@ -301,13 +276,13 @@ class Simulator:
         # Update display
         self.display_manager.update_display(self.comparison_manager.messages, "comparison")
         
-        print("\n🌊 FLOODING ALGORITHM READY!")
-        print("📡 Every node will forward to ALL neighbors")
+        print("\nFlooding algorithm ready.")
+        print("Every node will forward to ALL neighbors")
         print("\nControls:")
         print("  SPACE: Advance to next frame")
         print("  Q: Finish this algorithm")
         print("  R: Reset simulation")
-        print("\nClick on the simulation window and press SPACE to begin!")
+        print("\nClick on the simulation window and press SPACE to begin.")
         
         # Run until complete or user quits
         try:
@@ -322,7 +297,7 @@ class Simulator:
         
         # Show results
         if self.comparison_manager.is_complete():
-            print("\n🌊 FLOODING ALGORITHM COMPLETED!")
+            print("\nFlooding algorithm completed.")
             self.comparison_manager.show_final_statistics()
         
         # Close display
@@ -358,13 +333,13 @@ class Simulator:
         # Update display
         self.display_manager.update_display(self.comparison_manager.messages, "comparison")
         
-        print("\n🌳 TREE-BASED ALGORITHM READY!")
-        print("🎯 Nodes will use learned knowledge trees for smart routing")
+        print("\nTree-based algorithm ready.")
+        print("Nodes will use learned knowledge trees for smart routing")
         print("\nControls:")
         print("  SPACE: Advance to next frame")
         print("  Q: Finish this algorithm")
         print("  R: Reset simulation")
-        print("\nClick on the simulation window and press SPACE to begin!")
+        print("\nClick on the simulation window and press SPACE to begin.")
         
         # Run until complete or user quits
         try:
@@ -379,7 +354,7 @@ class Simulator:
         
         # Show results
         if self.comparison_manager.is_complete():
-            print("\n🌳 TREE-BASED ALGORITHM COMPLETED!")
+            print("\nTree-based algorithm completed.")
             self.comparison_manager.show_final_statistics()
         
         # Close display
@@ -399,27 +374,27 @@ class Simulator:
         results = {}
         
         # Run flooding algorithm (fast mode)
-        print("\n🌊 Running Flooding Algorithm (fast mode)...")
+        print("\nRunning Flooding Algorithm (fast mode)...")
         self._set_algorithm_mode("flooding")
         self.comparison_manager.set_algorithm_name("Flooding")
         flooding_stats = self._run_algorithm_fast("flooding")
         results["flooding"] = flooding_stats
         
         # Run tree algorithm (fast mode)
-        print("\n🌳 Running Tree-Based Algorithm (fast mode)...")
+        print("Running Tree-Based Algorithm (fast mode)...")
         self._set_algorithm_mode("tree")
         self.comparison_manager.set_algorithm_name("Tree-Based")
         tree_stats = self._run_algorithm_fast("tree")
         results["tree"] = tree_stats
         
         # Show comparison
-        print("\n⚖️ ALGORITHM COMPARISON RESULTS")
+        print("\nALGORITHM COMPARISON RESULTS")
         print("="*80)
         
         self._show_detailed_algorithm_comparison(results)
         
         print("="*80)
-        input("\nPress Enter to return to main menu...")
+        input("\nPress Enter to return to menu...")
         
     def _set_algorithm_mode(self, mode):
         """Set the algorithm mode for message processing"""
@@ -452,11 +427,11 @@ class Simulator:
         flooding = results["flooding"]
         tree = results["tree"]
         
-        print(f"\n📊 COMPREHENSIVE ALGORITHM COMPARISON")
+        print(f"\nCOMPREHENSIVE ALGORITHM COMPARISON")
         print("=" * 80)
         
         # === MESSAGE-LEVEL STATISTICS ===
-        print("\n🎯 MESSAGE SUCCESS STATISTICS:")
+        print("\nMESSAGE SUCCESS STATISTICS:")
         print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
         print("-" * 80)
         
@@ -471,7 +446,7 @@ class Simulator:
         print(f"{'Failed Messages':<35} {flooding['failed']:<15} {tree['failed']:<15} {self._determine_winner(tree['failed'], flooding['failed'], higher_better=False):<15}")
         
         # === NETWORK-LEVEL STATISTICS ===
-        print(f"\n🌐 NETWORK TRANSMISSION STATISTICS:")
+        print(f"\nNETWORK TRANSMISSION STATISTICS:")
         print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
         print("-" * 80)
         
@@ -492,7 +467,7 @@ class Simulator:
         print(f"{'Resource Efficiency (%)':<35} {flood_res_eff:<15.3f} {tree_res_eff:<15.3f} {res_eff_winner:<15}")
         
         # === COLLISION AND PERFORMANCE STATISTICS ===
-        print(f"\n💥 COLLISION AND PERFORMANCE STATISTICS:")
+        print(f"\nCOLLISION AND PERFORMANCE STATISTICS:")
         print(f"{'Metric':<35} {'Flooding':<15} {'Tree-Based':<15} {'Winner':<15}")
         print("-" * 80)
         
@@ -511,13 +486,13 @@ class Simulator:
         print(f"{'Average Path Length':<35} {flood_avg_path:<15.1f} {tree_avg_path:<15.1f} {path_winner:<15}")
         
         # === DETAILED MESSAGE ANALYSIS ===
-        print(f"\n📋 DETAILED MESSAGE ANALYSIS:")
+        print(f"\nDETAILED MESSAGE ANALYSIS:")
         print("-" * 80)
         
         self._show_message_details_comparison(flooding, tree)
         
         # === OVERALL WINNER CALCULATION ===
-        print(f"\n🏆 OVERALL WINNER ANALYSIS:")
+        print(f"\nOVERALL WINNER ANALYSIS:")
         print("-" * 80)
         
         # Count wins in each category
@@ -540,20 +515,20 @@ class Simulator:
         print()
         
         if tree_wins > flood_wins:
-            print("🌳 **TREE-BASED ALGORITHM** is the overall winner!")
-            print("   ✅ Better performance using learned knowledge trees")
-            print("   🎯 Smart routing decisions lead to more efficient network usage")
+            print("TREE-BASED ALGORITHM is the overall winner!")
+            print("Better performance using learned knowledge trees")
+            print("Smart routing decisions lead to more efficient network usage")
         elif flood_wins > tree_wins:
-            print("🌊 **FLOODING ALGORITHM** is the overall winner!")
-            print("   ✅ Simple flooding proves more effective for this scenario")
-            print("   📡 Pure flooding approach handles network conditions better")
+            print("FLOODING ALGORITHM is the overall winner!")
+            print("Simple flooding proves more effective for this scenario")
+            print("Pure flooding approach handles network conditions better")
         else:
-            print("🤝 **IT'S A TIE!**")
-            print("   ⚖️ Both algorithms performed similarly in this scenario")
-            print("   🔄 Different network conditions might favor one over the other")
+            print("IT'S A TIE!")
+            print("Both algorithms performed similarly in this scenario")
+            print("Different network conditions might favor one over the other")
         
         # === INSIGHTS AND RECOMMENDATIONS ===
-        print(f"\n💡 INSIGHTS AND RECOMMENDATIONS:")
+        print(f"\nINSIGHTS AND RECOMMENDATIONS:")
         print("-" * 80)
         self._provide_algorithm_insights(flooding, tree)
 
@@ -602,50 +577,50 @@ class Simulator:
         
         # Network efficiency insight
         if tree_stats['network_efficiency'] > flooding_stats['network_efficiency'] * 1.1:
-            insights.append("🎯 Tree-based algorithm shows significantly better network efficiency")
-            insights.append("   → Knowledge trees help avoid unnecessary transmissions")
+            insights.append("Tree-based algorithm shows significantly better network efficiency")
+            insights.append("  Knowledge trees help avoid unnecessary transmissions")
         elif flooding_stats['network_efficiency'] > tree_stats['network_efficiency'] * 1.1:
-            insights.append("📡 Flooding algorithm shows better network efficiency")
-            insights.append("   → Simple flooding works well for this network topology")
+            insights.append("Flooding algorithm shows better network efficiency")
+            insights.append("  Simple flooding works well for this network topology")
         
         # Path length insight
         if tree_stats['average_path_length'] < flooding_stats['average_path_length'] * 0.9:
-            insights.append("🛤️ Tree-based algorithm finds shorter paths on average")
-            insights.append("   → Knowledge trees enable more direct routing")
+            insights.append("Tree-based algorithm finds shorter paths on average")
+            insights.append("  Knowledge trees enable more direct routing")
         elif flooding_stats['average_path_length'] < tree_stats['average_path_length'] * 0.9:
-            insights.append("🔄 Flooding algorithm achieves shorter paths")
-            insights.append("   → Multiple parallel paths help find efficient routes")
+            insights.append("Flooding algorithm achieves shorter paths")
+            insights.append("  Multiple parallel paths help find efficient routes")
         
         # Collision insight
         total_transmissions_diff = abs(tree_stats['total_transmissions_sent'] - flooding_stats['total_transmissions_sent'])
         if total_transmissions_diff > max(tree_stats['total_transmissions_sent'], flooding_stats['total_transmissions_sent']) * 0.2:
             if tree_stats['total_transmissions_sent'] < flooding_stats['total_transmissions_sent']:
-                insights.append("🔇 Tree-based algorithm significantly reduces network traffic")
-                insights.append("   → Smart routing decisions minimize unnecessary transmissions")
+                insights.append("Tree-based algorithm significantly reduces network traffic")
+                insights.append("  Smart routing decisions minimize unnecessary transmissions")
             else:
-                insights.append("📢 Flooding algorithm uses more network resources")
-                insights.append("   → Higher transmission volume may indicate less efficient routing")
+                insights.append("Flooding algorithm uses more network resources")
+                insights.append("  Higher transmission volume may indicate less efficient routing")
         
         # Success rate insight
         success_diff = abs(tree_stats['success_rate'] - flooding_stats['success_rate'])
         if success_diff > 10:  # More than 10% difference
             if tree_stats['success_rate'] > flooding_stats['success_rate']:
-                insights.append("✅ Tree-based algorithm has significantly higher success rate")
-                insights.append("   → Learned knowledge improves message delivery reliability")
+                insights.append("Tree-based algorithm has significantly higher success rate")
+                insights.append("  Learned knowledge improves message delivery reliability")
             else:
-                insights.append("🌊 Flooding algorithm achieves higher success rate")
-                insights.append("   → Redundant paths improve delivery reliability")
+                insights.append("Flooding algorithm achieves higher success rate")
+                insights.append("  Redundant paths improve delivery reliability")
         
         # Print insights
         if insights:
             for insight in insights:
                 print(insight)
         else:
-            print("📊 Both algorithms performed very similarly in this scenario")
-            print("🔬 Try running with different network configurations for clearer differences")
+            print("Both algorithms performed very similarly in this scenario")
+            print("Try running with different network configurations for clearer differences")
         
         print()
-        print("💭 GENERAL RECOMMENDATIONS:")
+        print("GENERAL RECOMMENDATIONS:")
         print("• Tree-based routing works best in stable networks with good connectivity")
         print("• Flooding is more robust in dynamic or uncertain network conditions")
         print("• Consider hybrid approaches that combine both strategies")
@@ -668,11 +643,11 @@ class Simulator:
         self.display_manager.initialize_display()
         self.is_running = True
         
-        print("\n📚 LEARNING PHASE CONTROLS:")
+        print("\nLearning phase controls:")
         print("  SPACE: Advance to next learning frame")
         print("  Q: Skip to learning results")
         print("  R: Reset learning")
-        print("\nClick on the simulation window and press SPACE to begin learning!")
+        print("\nClick on the simulation window and press SPACE to begin learning.")
         
         # Set display mode
         self.display_manager.set_mode("learning", 
@@ -746,7 +721,7 @@ class Simulator:
             if not self.learning_manager.learning_complete:
                 # LEARNING MODE
                 if self.learning_manager.is_complete():
-                    print("Learning phase completed!")
+                    print("Learning phase completed.")
                     self.learning_manager.learning_complete = True
                     self.learning_manager.clean_up_colors()
                     self.learning_manager.show_final_results()
@@ -756,7 +731,7 @@ class Simulator:
             elif hasattr(self.comparison_manager, 'messages') and self.comparison_manager.messages:
                 # COMPARISON MODE (only if comparison messages exist)
                 if self.comparison_manager.is_complete():
-                    print("Comparison simulation already completed!")
+                    print("Comparison simulation already completed.")
                     return
                 print(f"Advancing to comparison frame {self.comparison_manager.current_frame + 1}")
                 self.advance_comparison_frame()
@@ -793,7 +768,7 @@ class Simulator:
     def advance_learning_frame(self):
         """Advance learning simulation by one frame"""
         if self.learning_manager.is_complete():
-            print("Learning phase completed!")
+            print("Learning phase completed.")
             self.learning_manager.learning_complete = True
             self.learning_manager.clean_up_colors()
             self.learning_manager.show_final_results()
@@ -811,7 +786,7 @@ class Simulator:
         
         # Check if learning is complete
         if self.learning_manager.is_complete():
-            print(f"All learning messages completed at frame {self.learning_manager.current_frame}!")
+            print(f"All learning messages completed at frame {self.learning_manager.current_frame}.")
             self.learning_manager.learning_complete = True
             self.learning_manager.clean_up_colors()
             self.learning_manager.show_final_results()
@@ -819,7 +794,7 @@ class Simulator:
     def advance_comparison_frame(self):
         """Advance comparison simulation by one frame"""
         if self.comparison_manager.is_complete():
-            print("Comparison simulation completed!")
+            print("Comparison simulation completed.")
             return
             
         # Execute comparison frame
@@ -835,7 +810,7 @@ class Simulator:
         # Check completion
         if self.comparison_manager.is_complete():
             if all(msg.is_completed for msg in self.comparison_manager.messages.values()):
-                print(f"All messages completed at frame {self.comparison_manager.current_frame}!")
+                print(f"All messages completed at frame {self.comparison_manager.current_frame}.")
             else:
-                print(f"Simulation completed after {self.comparison_manager.total_frames} frames!")
+                print(f"Simulation completed after {self.comparison_manager.total_frames} frames.")
             self.comparison_manager.show_final_statistics()

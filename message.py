@@ -48,7 +48,7 @@ class Message:
         """Mark that target has received the message - but DON'T complete yet"""
         self.target_received = True
         # DON'T change status here - only when message completes
-        print(f"      🎯 Message {self.id} target reached - flooding continues")
+        print(f"      Message {self.id} target reached - flooding continues")
 
     def complete_message(self, reason):
         """Mark message as completed"""
@@ -59,10 +59,10 @@ class Message:
         # Determine final status based on whether target was reached
         if self.target_received:
             self.status = "SUCCESS"  # Target was reached during flooding
-            print(f"      ✅ Message {self.id} COMPLETED: SUCCESS (target reached during flooding)")
+            print(f"      Message {self.id} COMPLETED: SUCCESS (target reached during flooding)")
         else:
             self.status = "FAILED"   # Target never reached
-            print(f"      ❌ Message {self.id} COMPLETED: FAILED (target never reached)")      
+            print(f"      Message {self.id} COMPLETED: FAILED (target never reached)")      
         
     def get_state(self):
         """Get current state of the message"""
@@ -95,7 +95,7 @@ class Message:
         # Add new path if it's unique
         if new_path not in self.paths:
             self.paths.append(new_path)
-            print(f"        📍 New path discovered: {' → '.join(map(str, new_path))}")
+            print(f"        New path discovered: {' -> '.join(map(str, new_path))}")
             
         # Update active copy for this node
         self.active_copies[receiver_id] = new_path
@@ -115,5 +115,5 @@ class Message:
             # Add status when completed
             status_marker = f" | Status: {self.get_status()}"
         elif self.target_received:
-            status_marker = " 🎯"
-        return f"Msg {self.id}: {self.source}→{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | State: {state}{status_marker}"
+            status_marker = " (target reached)"
+        return f"Msg {self.id}: {self.source}->{self.target} | Hops: {self.current_hops}/{self.hop_limit} | Frame: {self.start_frame} | State: {state}{status_marker}"

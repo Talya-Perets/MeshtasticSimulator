@@ -83,22 +83,23 @@ class Node:
         # Check for exact duplicate from same sender
         message_key = (message.id, sender_id)
         if message_key in self.seen_message_copies:
-            return False  # אותה הודעה מאותו שולח - דחה
+            return False  # Same message from same sender - reject
         
         # Accept the message (for statistics)
         self.seen_message_copies.add(message_key)
         
         # Check if we've processed this message before
         if message.id in self.received_message_ids:
-            print(f"      📨 Node {self.id} received Message {message.id} again - already processed, won't forward")
-            return True  # ← שני לTrue! קיבלנו, פשוט לא נפיץ
+            print(f"      Node {self.id} received Message {message.id} again - already processed, won't forward")
+            return True  # Received, just won't propagate
         
         # First time seeing this message - accept and add for processing
         self.received_messages.append((message, sender_id, sender_path))
         self.received_message_ids.add(message.id)
-        print(f"      ✅ Node {self.id} received NEW Message {message.id} - will process and forward")
+        print(f"      Node {self.id} received NEW Message {message.id} - will process and forward")
         
         return True
+    
     def get_routing_decision(self, message, hop_limit_remaining, algorithm_mode="flooding"):
         """Routing decision based on selected algorithm"""
         source = message.source
@@ -107,11 +108,11 @@ class Node:
         # FIRST CHECK: If I'm the target, never forward (for both algorithms)
         if target == self.id:
             if algorithm_mode == "flooding":
-                print(f"📋 Node {self.id} flooding decision for Message {message.id} ({source}→{target}):")
-                print(f"   🎯 I AM THE TARGET - not forwarding")
+                print(f"Node {self.id} flooding decision for Message {message.id} ({source}->{target}):")
+                print(f"   I AM THE TARGET - not forwarding")
             else:
-                print(f"📋 Node {self.id} tree-based decision for Message {message.id} ({source}→{target}):")
-                print(f"   🎯 I AM THE TARGET - not forwarding")
+                print(f"Node {self.id} tree-based decision for Message {message.id} ({source}->{target}):")
+                print(f"   I AM THE TARGET - not forwarding")
             return []
         
         if algorithm_mode == "flooding":
@@ -124,9 +125,9 @@ class Node:
         source = message.source
         target = message.target
         
-        print(f"📋 Node {self.id} flooding decision for Message {message.id} ({source}→{target}):")
+        print(f"Node {self.id} flooding decision for Message {message.id} ({source}->{target}):")
         print(f"   Hop limit remaining: {hop_limit_remaining}")
-        print(f"   ✅ Decision: PURE FLOODING to all neighbors {list(self.neighbors)}")
+        print(f"   Decision: PURE FLOODING to all neighbors {list(self.neighbors)}")
         
         # Always return all neighbors - pure flooding
         return list(self.neighbors)
@@ -136,7 +137,7 @@ class Node:
         source = message.source
         target = message.target
         
-        print(f"📋 Node {self.id} tree-based decision for Message {message.id} ({source}→{target}):")
+        print(f"Node {self.id} tree-based decision for Message {message.id} ({source}->{target}):")
         print(f"   Hop limit remaining: {hop_limit_remaining}")
         
         # Check if both source and target are in my knowledge tree
@@ -148,7 +149,7 @@ class Node:
         
         # If I don't know about both source and target, flood to all neighbors
         if not (source_in_tree and target_in_tree):
-            print(f"   ✅ Decision: FLOOD (missing knowledge) to all neighbors {list(self.neighbors)}")
+            print(f"   Decision: FLOOD (missing knowledge) to all neighbors {list(self.neighbors)}")
             return list(self.neighbors)
         
         # Both source and target are in my tree - check if they're in same subtree
@@ -156,12 +157,12 @@ class Node:
         
         # Check if source and target are in the same subtree
         if self._are_in_same_subtree(source, target):
-            print(f"   🚫 Decision: DON'T SEND - source and target in same subtree")
-            print(f"      → There's a path {source}→{target} that doesn't go through me")
+            print(f"   Decision: DON'T SEND - source and target in same subtree")
+            print(f"      → There's a path {source}->{target} that doesn't go through me")
             return []  # Don't send to anyone
         else:
             # They're in different subtrees - flood to all neighbors
-            print(f"   ✅ Decision: FLOOD (different subtrees) to all neighbors {list(self.neighbors)}")
+            print(f"   Decision: FLOOD (different subtrees) to all neighbors {list(self.neighbors)}")
             return list(self.neighbors)
 
     def _are_in_same_subtree(self, source, target):
@@ -180,10 +181,10 @@ class Node:
             print(f"      Child {child}: source({source})={source_in_subtree}, target({target})={target_in_subtree}")
             
             if source_in_subtree and target_in_subtree:
-                print(f"      ✅ Both source and target found in subtree of child {child}")
+                print(f"      Both source and target found in subtree of child {child}")
                 return True
         
-        print(f"      ❌ No single subtree contains both source and target")
+        print(f"      No single subtree contains both source and target")
         return False
 
     def _get_direct_children(self):
@@ -196,47 +197,47 @@ class Node:
         return direct_children
 
     def _is_in_subtree(self, node, subtree_root):
-            """Check if a node is in the subtree rooted at subtree_root - SIMPLE AND CORRECT"""
-            print(f"        🔍 Checking if {node} is in subtree of {subtree_root}")
+        """Check if a node is in the subtree rooted at subtree_root"""
+        print(f"        Checking if {node} is in subtree of {subtree_root}")
+        
+        # The subtree root is always in its own subtree
+        if node == subtree_root:
+            print(f"        {node} IS the root {subtree_root}")
+            return True
+        
+        # Check if node exists in my knowledge tree
+        if node not in self.knowledge_tree:
+            print(f"        {node} not in knowledge tree at all")
+            return False
+        
+        # Simple approach: check if any entry of this node has subtree_root as parent
+        # OR if any path from node back to ME goes through subtree_root
+        visited = set()
+        nodes_to_check = [node]
+        
+        while nodes_to_check:
+            current = nodes_to_check.pop(0)
             
-            # The subtree root is always in its own subtree
-            if node == subtree_root:
-                print(f"        ✅ {node} IS the root {subtree_root}")
+            if current in visited:
+                continue
+            visited.add(current)
+            
+            if current == subtree_root:
+                print(f"        Found {subtree_root} in path from {node}")
                 return True
             
-            # Check if node exists in my knowledge tree
-            if node not in self.knowledge_tree:
-                print(f"        ❌ {node} not in knowledge tree at all")
-                return False
-            
-            # Simple approach: check if any entry of this node has subtree_root as parent
-            # OR if any path from node back to ME goes through subtree_root
-            visited = set()
-            nodes_to_check = [node]
-            
-            while nodes_to_check:
-                current = nodes_to_check.pop(0)
+            if current == self.id:
+                continue
                 
-                if current in visited:
-                    continue
-                visited.add(current)
-                
-                if current == subtree_root:
-                    print(f"        ✅ Found {subtree_root} in path from {node}")
-                    return True
-                
-                if current == self.id:
-                    continue
-                    
-                # Get all parents of current node
-                if current in self.knowledge_tree:
-                    for entry in self.knowledge_tree[current]:
-                        parent = entry['parent']
-                        if parent not in visited:
-                            nodes_to_check.append(parent)
-            
-            print(f"        ❌ {node} NOT found in subtree of {subtree_root}")
-            return False
+            # Get all parents of current node
+            if current in self.knowledge_tree:
+                for entry in self.knowledge_tree[current]:
+                    parent = entry['parent']
+                    if parent not in visited:
+                        nodes_to_check.append(parent)
+        
+        print(f"        {node} NOT found in subtree of {subtree_root}")
+        return False
 
     def build_knowledge_tree_from_message(self, message_source, path, current_frame):
         """Build knowledge tree from received message path - learn ALL paths, store multiple entries per destination"""
@@ -247,10 +248,10 @@ class Node:
         try:
             my_index = path.index(self.id)
         except ValueError:
-            print(f"      ⚠️ Node {self.id} not found in path {path}")
+            print(f"      WARNING: Node {self.id} not found in path {path}")
             return
         
-        print(f"      🌳 Node {self.id} building tree from path: {' → '.join(map(str, path))}")
+        print(f"      Node {self.id} building tree from path: {' -> '.join(map(str, path))}")
         
         # Build tree by learning the REVERSE path (from me back to source)
         # This creates a tree showing how to reach all nodes in the path
@@ -282,7 +283,7 @@ class Node:
                 self.knowledge_tree[target_node] = []
             
             self.knowledge_tree[target_node].append(new_entry)
-            print(f"         🌲 Tree entry added: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
+            print(f"         Tree entry added: {target_node} (distance: {distance_to_target}, parent: {parent_in_tree})")
 
     def process_received_messages(self, current_frame=0):
         """Process all message copies received this frame with tree building"""
@@ -299,32 +300,32 @@ class Node:
             hops_used = len(new_path) - 1
             local_hop_limit = message.hop_limit - hops_used
             
-            print(f"      📊 Node {self.id}: Path={' → '.join(map(str, new_path))}, Hops used={hops_used}, Remaining={local_hop_limit}")
+            print(f"      Node {self.id}: Path={' -> '.join(map(str, new_path))}, Hops used={hops_used}, Remaining={local_hop_limit}")
             
             # Check if target
             if message.target == self.id:
                 if not message.target_received:
                     message.target_reached()
-                    print(f"      🎯 Message {message.id} reached target {self.id} - but continues flooding")
+                    print(f"      Message {message.id} reached target {self.id} - but continues flooding")
                 else:
-                    print(f"      ℹ️  Message {message.id} target already reached, continues flooding")
+                    print(f"      Message {message.id} target already reached, continues flooding")
                 
             # Check hop limit
             if local_hop_limit <= 0:
                 if not message.is_completed:
                     message.complete_message("hop_limit_exceeded")
-                    print(f"      🛑 Message {message.id} hop limit exceeded at node {self.id}")
+                    print(f"      Message {message.id} hop limit exceeded at node {self.id}")
                 processed_messages.append((message, new_path))
             else:
                 self.pending_messages.append((message, new_path, local_hop_limit))
-                print(f"      📤 Message {message.id} added to pending (local hops left: {local_hop_limit})")
+                print(f"      Message {message.id} added to pending (local hops left: {local_hop_limit})")
                 processed_messages.append((message, new_path))
                     
         return processed_messages
     
     def print_knowledge_tree(self):
         """Print current knowledge tree as actual tree structure"""
-        print(f"      🌳 Node {self.id} Knowledge Tree:")
+        print(f"      Node {self.id} Knowledge Tree:")
         if not self.knowledge_tree:
             print(f"         (empty)")
             return
@@ -400,7 +401,7 @@ class Node:
             next_hops = [entry['next_hop'] for entry in entries_list if entry['next_hop']]
             distances_str = ','.join(map(str, sorted(set(distances))))
             next_hops_str = ','.join(map(str, sorted(set(next_hops))))
-            summary_lines.append(f"→{dest} (d:{distances_str}, via:{next_hops_str})")
+            summary_lines.append(f"->{dest} (d:{distances_str}, via:{next_hops_str})")
         
         return " | ".join(summary_lines)
 

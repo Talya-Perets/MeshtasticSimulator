@@ -12,7 +12,7 @@ class MessageProcessor:
     def set_algorithm_mode(self, mode):
         """Set the algorithm mode: 'flooding' or 'tree'"""
         self.algorithm_mode = mode
-        print(f"🔧 MessageProcessor algorithm mode set to: {mode}")
+        print(f"MessageProcessor algorithm mode set to: {mode}")
         
     def process_transmissions(self, messages, message_type="learning", stats_manager=None):
         """
@@ -39,7 +39,7 @@ class MessageProcessor:
         # Phase 4: Process received messages and build knowledge trees
         completed_messages = self._process_received_messages(collision_nodes, message_type, messages)
         
-        # Phase 5: Clean up colors for expired/stalled messages (FIXED!)
+        # Phase 5: Clean up colors for expired/stalled messages
         for message in expired_messages:
             if message.is_completed:
                 self._immediate_color_cleanup(message, message_type, messages)
@@ -255,12 +255,12 @@ class MessageProcessor:
                 
                 # Print detailed reception info for learning mode
                 if message_type == "learning":
-                    print(f"\n🔍 Node {node_id} processing received {message_type} messages:")
+                    print(f"\nNode {node_id} processing received {message_type} messages:")
                     for msg_copy in node.received_messages:
                         if len(msg_copy) >= 3:
                             message, sender_id, sender_path = msg_copy
-                            print(f"  📨 Message {message.id} from node {sender_id}")
-                            print(f"      Path so far: {' → '.join(map(str, sender_path))}")
+                            print(f"  Message {message.id} from node {sender_id}")
+                            print(f"      Path so far: {' -> '.join(map(str, sender_path))}")
                 
                 # Process the received messages and build knowledge trees
                 processed = node.process_received_messages()
@@ -269,18 +269,18 @@ class MessageProcessor:
                     if message.is_completed:
                         completed_messages_this_frame.append(message)
                         if message_type == "learning":
-                            print(f"✅ Learning Message {message.id} completed at node {node_id}")
+                            print(f"Learning Message {message.id} completed at node {node_id}")
                         # Clean up colors for completed message
                         self._immediate_color_cleanup(message, message_type, messages)
         
         return completed_messages_this_frame
     
     def _immediate_color_cleanup(self, completed_message, message_type, all_messages):
-        """Immediately clean up colors when a message completes - FIXED VERSION"""
+        """Immediately clean up colors when a message completes"""
         if message_type == "learning":
-            print(f"🧹 Immediate cleanup for Learning Message {completed_message.id}")
+            print(f"Immediate cleanup for Learning Message {completed_message.id}")
         else:
-            print(f"🧹 Immediate cleanup for Comparison Message {completed_message.id}")
+            print(f"Immediate cleanup for Comparison Message {completed_message.id}")
         
         source_id = completed_message.source
         target_id = completed_message.target
@@ -300,11 +300,11 @@ class MessageProcessor:
         # Clear colors if no other active messages
         if not source_has_other:
             self.network.nodes[source_id].set_as_source(False)
-            print(f"  🎨 Cleared SOURCE color from node {source_id}")
+            print(f"  Cleared SOURCE color from node {source_id}")
             
         if not target_has_other:
             self.network.nodes[target_id].set_as_target(False)
-            print(f"  🎨 Cleared TARGET color from node {target_id}")
+            print(f"  Cleared TARGET color from node {target_id}")
     
     def _print_transmission_summary(self, sending_nodes, successful_receives, completed_messages, message_type):
         """Print summary of transmission results with enhanced statistics"""
@@ -318,9 +318,9 @@ class MessageProcessor:
                 print(f"  {sender_id} -> {receiver_id} (Message {msg_id})")
         
         if completed_messages:
-            print(f"\n🎯 {message_type.title()} messages completed this frame:")
+            print(f"\n{message_type.title()} messages completed this frame:")
             for msg in completed_messages:
                 status = "SUCCESS" if msg.get_status() == "SUCCESS" else "FAILED"
-                print(f"  ✅ Message {msg.id} ({msg.source}→{msg.target}): {status}")
+                print(f"  Message {msg.id} ({msg.source}->{msg.target}): {status}")
         else:
-            print(f"\n📝 No {message_type} messages completed this frame")
+            print(f"\nNo {message_type} messages completed this frame")

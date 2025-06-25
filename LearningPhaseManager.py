@@ -19,7 +19,7 @@ class LearningPhaseManager:
         self.learning_messages.clear()
         learning_pairs = self._get_learning_pairs(num_nodes)
         
-        print(f"\n📚 LEARNING PHASE: {len(learning_pairs)} predetermined message pairs")
+        print(f"\nLearning phase: {len(learning_pairs)} predetermined message pairs")
         print("Messages will be sent every 4 frames:")
         
         msg_id = 0
@@ -32,13 +32,13 @@ class LearningPhaseManager:
             message.hop_limit = 4
             
             self.learning_messages[msg_id] = message
-            print(f"  Learning Msg {msg_id}: {source} → {target} (Frame {current_frame})")
+            print(f"  Learning Msg {msg_id}: {source} -> {target} (Frame {current_frame})")
             
             msg_id += 1
             current_frame += message_interval
         
         self.learning_frames = current_frame - 1
-        print(f"📅 Learning phase will take approximately {self.learning_frames} frames")
+        print(f"Learning phase will take approximately {self.learning_frames} frames")
         return self.learning_frames
     
     def _get_learning_pairs(self, num_nodes):
@@ -85,8 +85,8 @@ class LearningPhaseManager:
                 self.network.nodes[message.source].set_as_source(True)
                 self.network.nodes[message.target].set_as_target(True)
         
-        print(f"🎨 Active sources: {sorted(active_sources)}")
-        print(f"🎨 Active targets: {sorted(active_targets)}")
+        print(f"Active sources: {sorted(active_sources)}")
+        print(f"Active targets: {sorted(active_targets)}")
         
         # Start new messages for this frame
         self._start_learning_messages_for_frame()
@@ -98,7 +98,7 @@ class LearningPhaseManager:
         # Clean up completed learning messages IMMEDIATELY
         for message in completed_messages:
             self._clear_learning_message_status(message)
-            print(f"🧹 Cleared colors for completed Learning Message {message.id}")
+            print(f"Cleared colors for completed Learning Message {message.id}")
         
         self.current_frame += 1
         
@@ -114,7 +114,7 @@ class LearningPhaseManager:
     
     def _verify_colors(self):
         """Verify that source/target colors match active messages"""
-        print("🔍 Verifying colors...")
+        print("Verifying colors...")
         
         # Get expected sources and targets
         expected_sources = set()
@@ -146,14 +146,14 @@ class LearningPhaseManager:
         
         for node_id in wrong_sources:
             self.network.nodes[node_id].set_as_source(False)
-            print(f"  🚨 FIXED: Removed wrong SOURCE color from node {node_id}")
+            print(f"  FIXED: Removed wrong SOURCE color from node {node_id}")
             
         for node_id in wrong_targets:
             self.network.nodes[node_id].set_as_target(False)
-            print(f"  🚨 FIXED: Removed wrong TARGET color from node {node_id}")
+            print(f"  FIXED: Removed wrong TARGET color from node {node_id}")
         
         if not wrong_sources and not wrong_targets:
-            print("  ✅ All colors are correct!")
+            print("  All colors are correct")
     
     def _start_learning_messages_for_frame(self):
         """Start learning messages that should begin this frame"""
@@ -172,7 +172,7 @@ class LearningPhaseManager:
                 self.network.nodes[message.source].pending_messages.append((message, initial_path))
                 
                 started_messages.append(message.id)
-                print(f"🚀 Started Learning Message {message.id}: {message.source} → {message.target}")
+                print(f"Started Learning Message {message.id}: {message.source} -> {message.target}")
         
         if started_messages:
             # Show status of all learning messages
@@ -180,7 +180,7 @@ class LearningPhaseManager:
     
     def _print_learning_messages_status(self):
         """Print status of all learning messages"""
-        print(f"\n📋 Learning Messages Status (Frame {self.current_frame + 1}):")
+        print(f"\nLearning Messages Status (Frame {self.current_frame + 1}):")
         active_count = completed_count = waiting_count = 0
         
         for msg_id, message in sorted(self.learning_messages.items()):
@@ -194,13 +194,13 @@ class LearningPhaseManager:
                 status = f"WAITING (starts frame {message.start_frame})"
                 waiting_count += 1
             
-            print(f"  Learning Msg {msg_id}: {message.source}→{message.target} - {status}")
+            print(f"  Learning Msg {msg_id}: {message.source}->{message.target} - {status}")
         
-        print(f"📊 Summary: {active_count} active, {waiting_count} waiting, {completed_count} completed")
+        print(f"Summary: {active_count} active, {waiting_count} waiting, {completed_count} completed")
     
     def _print_learning_progress(self):
         """Print learning progress and knowledge trees"""
-        print(f"\n🌳 LEARNING KNOWLEDGE TREES - End of Frame {self.current_frame}:")
+        print(f"\nLEARNING KNOWLEDGE TREES - End of Frame {self.current_frame}:")
         print("=" * 70)
         
         trees_found = False
@@ -213,7 +213,7 @@ class LearningPhaseManager:
                 trees_found = True
                 nodes_with_trees.append(node_id)
                 
-                # Check for new entries learned this frame - UPDATED FOR NEW STRUCTURE
+                # Check for new entries learned this frame
                 new_entries = []
                 for dest, entries_list in node.knowledge_tree.items():
                     for entry in entries_list:
@@ -222,9 +222,9 @@ class LearningPhaseManager:
                 
                 if new_entries:
                     new_entries_this_frame.extend([(node_id, dest) for dest in new_entries])
-                    print(f"\n📍 Node {node_id} Learning Tree (🆕 learned about {new_entries} this frame):")
+                    print(f"\nNode {node_id} Learning Tree (NEW: learned about {new_entries} this frame):")
                 else:
-                    print(f"\n📍 Node {node_id} Learning Tree (no new entries this frame):")
+                    print(f"\nNode {node_id} Learning Tree (no new entries this frame):")
                 
                 node.print_knowledge_tree()
                 print()
@@ -232,20 +232,20 @@ class LearningPhaseManager:
         if not trees_found:
             print("\n   (No knowledge trees built yet in learning phase)")
         else:
-            # Calculate total destinations - UPDATED FOR NEW STRUCTURE
+            # Calculate total destinations
             total_destinations = 0
             for node_id in nodes_with_trees:
                 total_destinations += len(self.network.nodes[node_id].knowledge_tree)
             
-            print(f"\n📊 Learning Progress: {len(nodes_with_trees)}/{len(self.network.nodes)} nodes have built trees")
-            print(f"📈 Total destinations learned so far: {total_destinations}")
+            print(f"\nLearning Progress: {len(nodes_with_trees)}/{len(self.network.nodes)} nodes have built trees")
+            print(f"Total destinations learned so far: {total_destinations}")
             
             if new_entries_this_frame:
-                print(f"🆕 New knowledge gained this frame:")
+                print(f"New knowledge gained this frame:")
                 for node_id, dest in new_entries_this_frame:
                     print(f"    Node {node_id} learned about destination {dest}")
             else:
-                print(f"📝 No new knowledge gained this frame")
+                print(f"No new knowledge gained this frame")
         
         print("=" * 70)
   
@@ -255,7 +255,7 @@ class LearningPhaseManager:
         target_id = completed_message.target
         message_id = completed_message.id
         
-        print(f"🧹 Clearing status for Learning Message {message_id} ({source_id}→{target_id})")
+        print(f"Clearing status for Learning Message {message_id} ({source_id}->{target_id})")
         
         # Remove this message from ALL nodes' pending_messages
         for node in self.network.nodes.values():
@@ -278,11 +278,11 @@ class LearningPhaseManager:
             if msg != completed_message
         )
         
-        print(f"  📍 Source node {source_id}: other active messages = {source_has_other_active}")
+        print(f"  Source node {source_id}: other active messages = {source_has_other_active}")
         
         if not source_has_other_active:
             self.network.nodes[source_id].set_as_source(False)
-            print(f"  🎨 Cleared SOURCE color from node {source_id}")
+            print(f"  Cleared SOURCE color from node {source_id}")
             
         # Check if target has OTHER active LEARNING messages
         target_has_other_active = any(
@@ -291,13 +291,13 @@ class LearningPhaseManager:
             if msg != completed_message
         )
         
-        print(f"  📍 Target node {target_id}: other active messages = {target_has_other_active}")
+        print(f"  Target node {target_id}: other active messages = {target_has_other_active}")
         
         if not target_has_other_active:
             self.network.nodes[target_id].set_as_target(False)
-            print(f"  🎨 Cleared TARGET color from node {target_id}")
+            print(f"  Cleared TARGET color from node {target_id}")
         
-        print(f"✅ Status cleanup complete for Learning Message {message_id}")
+        print(f"Status cleanup complete for Learning Message {message_id}")
     
     def is_complete(self):
         """Check if learning phase is complete"""
@@ -311,11 +311,11 @@ class LearningPhaseManager:
             node.set_as_source(False)
             node.set_as_target(False)
             node.reset_frame_status()
-        print("✅ All learning colors cleared")
+        print("All learning colors cleared")
     
     def show_final_results(self):
         """Show final learning results"""
-        print(f"\n🎓 LEARNING PHASE COMPLETED!")
+        print(f"\nLEARNING PHASE COMPLETED!")
         print("="*60)
         
         # Count trees built
@@ -327,12 +327,12 @@ class LearningPhaseManager:
                 trees_built += 1
                 total_destinations_learned += len(node.knowledge_tree)
         
-        print(f"📊 Learning Statistics:")
+        print(f"Learning Statistics:")
         print(f"  • Nodes that built knowledge trees: {trees_built}/{len(self.network.nodes)}")
         print(f"  • Total destination mappings learned: {total_destinations_learned}")
         print(f"  • Average destinations per node: {total_destinations_learned/len(self.network.nodes):.1f}")
         
-        print(f"\n🌳 Final Knowledge Trees:")
+        print(f"\nFinal Knowledge Trees:")
         for node_id in sorted(self.network.nodes.keys()):
             node = self.network.nodes[node_id]
             if node.knowledge_tree:
@@ -340,6 +340,6 @@ class LearningPhaseManager:
                 node.print_knowledge_tree()
         
         print("="*60)
-        print("🚀 Ready to proceed to algorithm comparison phase!")
+        print("Ready to proceed to algorithm comparison phase!")
         
         return trees_built, total_destinations_learned

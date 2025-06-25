@@ -47,7 +47,7 @@ def main():
         if len(sys.argv) > 2 and sys.argv[1] == "--preset":
             preset_size = int(sys.argv[2])
             if preset_size in [10, 50, 100]:
-                print(f"🎯 Using preset: {preset_size}-node optimized graph")
+                print(f"Using preset: {preset_size}-node optimized graph")
                 num_nodes = preset_size
                 
                 # Scale messages appropriately for each graph size
@@ -95,14 +95,14 @@ def run_example_simulation():
 
 def run_comparison_demo():
     """Run demonstrations of all optimized graph sizes"""
-    print("🎯 OPTIMIZED GRAPHS COMPARISON DEMO")
+    print("OPTIMIZED GRAPHS COMPARISON DEMO")
     print("="*50)
     
     fixed_sizes = [10, 50, 100]
     messages_for_size = {10: 3, 50: 5, 100: 8}
     
     for size in fixed_sizes:
-        print(f"\n📊 Demonstrating {size}-node optimized graph...")
+        print(f"\nDemonstrating {size}-node optimized graph...")
         if size == 100:
             print("   (Well distributed with normal connectivity)")
         input("Press Enter to continue...")
@@ -124,16 +124,16 @@ def print_usage_instructions():
     print("  python main.py --preset 50        # Quick 50-node fixed graph") 
     print("  python main.py --preset 100       # Quick 100-node fixed graph")
     print("\nOPTIMIZED GRAPH LAYOUTS:")
-    print("  🎯 Size 10: Compact cluster - good for basic flooding")
-    print("  🎯 Size 50: Medium complexity - balanced connectivity") 
-    print("  🎯 Size 100: Well distributed - normal connectivity, good spread")
-    print("  ✅ Same layout every time - perfect for reproducible experiments")
+    print("  Size 10: Compact cluster - good for basic flooding")
+    print("  Size 50: Medium complexity - balanced connectivity") 
+    print("  Size 100: Well distributed - normal connectivity, good spread")
+    print("  Same layout every time - perfect for reproducible experiments")
     print("\n5-OPTION MENU SYSTEM:")
-    print("  1️⃣  Learning Phase - Build knowledge trees")
-    print("  2️⃣  Flooding Algorithm - Pure flooding approach")
-    print("  3️⃣  Tree-Based Algorithm - Smart routing with learned knowledge")
-    print("  4️⃣  Algorithm Comparison - Run both and compare results")
-    print("  5️⃣  Exit - End simulation")
+    print("  1. Learning Phase - Build knowledge trees")
+    print("  2. Flooding Algorithm - Pure flooding approach")
+    print("  3. Tree-Based Algorithm - Smart routing with learned knowledge")
+    print("  4. Algorithm Comparison - Run both and compare results")
+    print("  5. Exit - End simulation")
     print("\nFLEXIBLE EXECUTION:")
     print("  • Run learning phase separately when needed")
     print("  • Test algorithms with or without learning")

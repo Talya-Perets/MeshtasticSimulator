@@ -24,38 +24,37 @@ class ComparisonPhaseManager:
             'collisions_per_frame': [],
             'active_messages_per_frame': [],
             
-            # Enhanced Network statistics (NEW/IMPROVED)
-            'total_transmissions_sent': 0,      # כל השידורים שנשלחו ברשת
-            'total_transmissions_received': 0,  # כל הקבלות המוצלחות ברשת
-            'total_transmissions_attempted': 0, # כל הניסיונות (כולל collisions)
-            'total_collisions_occurred': 0,     # כל ה-collisions שקרו
-            'transmissions_per_frame': [],      # שידורים לפי פריים
-            'receptions_per_frame': [],         # קבלות מוצלחות לפי פריים
-            'collisions_frame_events': [],      # collision events לפי פריים
+            # Network statistics
+            'total_transmissions_sent': 0,
+            'total_transmissions_received': 0,
+            'total_transmissions_attempted': 0,
+            'total_collisions_occurred': 0,
+            'transmissions_per_frame': [],
+            'receptions_per_frame': [],
+            'collisions_frame_events': [],
             
-            # Per-message detailed statistics (ENHANCED)
-            'message_details': {},  # {msg_id: detailed info per message}
+            # Per-message detailed statistics
+            'message_details': {},
             
-            # New: Algorithm-specific statistics
+            # Algorithm-specific statistics
             'algorithm_name': 'unknown',
-            'network_efficiency': 0.0,  # successful_receptions / total_transmissions
+            'network_efficiency': 0.0,
             'average_path_length': 0.0,
-            'resource_efficiency': 0.0, # successful_messages / total_transmissions
+            'resource_efficiency': 0.0,
         }
         
     def set_algorithm_name(self, algorithm_name):
         """Set the algorithm name for statistics tracking"""
         self.stats['algorithm_name'] = algorithm_name
-        print(f"📊 Statistics tracking set for algorithm: {algorithm_name}")
+        print(f"Statistics tracking set for algorithm: {algorithm_name}")
         
     def generate_comparison_messages(self, num_messages):
         """Generate RANDOM comparison messages for algorithm testing"""
         self.messages.clear()
         node_ids = list(self.network.nodes.keys())
         
-        # NO SEED - completely random messages each run!
-        print(f"\n🔬 COMPARISON PHASE: {num_messages} RANDOM test messages")
-        print("These messages will be DIFFERENT each run:")
+        print(f"\nComparison phase: {num_messages} random test messages")
+        print("Messages will be different each run:")
         
         for msg_id in range(num_messages):
             # Choose random source and target (different nodes)
@@ -67,12 +66,12 @@ class ComparisonPhaseManager:
             
             # Create message 
             message = Message(msg_id, source, target, self.total_frames)
-            message.start_frame = start_frame  # Override with random start
+            message.start_frame = start_frame
             
             self.messages[msg_id] = message
-            print(f"  Test Msg {msg_id}: {source} → {target} (Frame {start_frame})")
+            print(f"  Test Msg {msg_id}: {source} -> {target} (Frame {start_frame})")
         
-        print(f"🎲 Messages are completely RANDOM - each run tests different scenarios!")
+        print("Messages are random - each run tests different scenarios")
         
         # Initialize statistics arrays
         self.stats['collisions_per_frame'] = [0] * self.total_frames
@@ -97,32 +96,26 @@ class ComparisonPhaseManager:
         } for msg_id in self.messages.keys()}
                 
     def record_transmission_statistics(self, transmission_queue, successful_receives, collision_count):
-        """Record detailed transmission statistics for current frame - FIXED VERSION"""
-        current_frame_idx = self.current_frame - 1  # Arrays are 0-indexed
+        """Record detailed transmission statistics for current frame"""
+        current_frame_idx = self.current_frame - 1
         
         if current_frame_idx < 0 or current_frame_idx >= len(self.stats['transmissions_per_frame']):
             return
             
-        # Count total transmission attempts this frame - הספירה הנכונה
+        # Count total transmission attempts this frame
         total_attempts = len(transmission_queue)
         successful_receptions = len(successful_receives)
-        
-        print(f"🔍 DEBUG: Frame {self.current_frame} - {total_attempts} attempts, {successful_receptions} successful")
         
         # Update frame-specific stats
         self.stats['transmissions_per_frame'][current_frame_idx] = total_attempts
         self.stats['receptions_per_frame'][current_frame_idx] = successful_receptions
         self.stats['collisions_frame_events'][current_frame_idx] = collision_count
         
-        # Update cumulative stats - תיקון: אל תכפיל!
+        # Update cumulative stats
         self.stats['total_transmissions_attempted'] += total_attempts
-        self.stats['total_transmissions_sent'] += total_attempts  # אותו דבר
+        self.stats['total_transmissions_sent'] += total_attempts
         self.stats['total_transmissions_received'] += successful_receptions
         self.stats['total_collisions_occurred'] += collision_count
-        
-        # DEBUGGING: Print cumulative totals
-        print(f"🔍 CUMULATIVE DEBUG: Total sent so far: {self.stats['total_transmissions_sent']}")
-        print(f"🔍 CUMULATIVE DEBUG: Total received so far: {self.stats['total_transmissions_received']}")
         
         # Update per-message transmission counts
         message_transmission_counts = {}
@@ -147,7 +140,7 @@ class ComparisonPhaseManager:
             if msg_id in self.stats['message_details']:
                 self.stats['message_details'][msg_id]['total_receptions_for_this_message'] += count
         
-        print(f"📊 Frame {self.current_frame} stats: {total_attempts} transmissions, {successful_receptions} successful, {collision_count} collisions")
+        print(f"Frame {self.current_frame} stats: {total_attempts} transmissions, {successful_receptions} successful, {collision_count} collisions")
             
     def execute_comparison_frame(self, message_processor):
         """Execute one comparison frame"""
@@ -173,7 +166,6 @@ class ComparisonPhaseManager:
         # Count collisions for statistics
         collision_count = sum(1 for node in self.network.nodes.values() 
                             if node.status_flags[node.STATUS_COLLISION])
-        
         
         # Clean up completed comparison messages
         for message in completed_messages:
@@ -222,12 +214,12 @@ class ComparisonPhaseManager:
                 self.network.nodes[message.source].set_as_source(True)
                 self.network.nodes[message.target].set_as_target(True)
                 
-                # NEW: Mark that source node has "seen" this message!
+                # Mark that source node has "seen" this message
                 source_node = self.network.nodes[message.source]
                 if not hasattr(source_node, 'received_message_ids'):
                     source_node.received_message_ids = set()
                 source_node.received_message_ids.add(message.id)
-                print(f"      🎯 Source node {message.source} marked Message {message.id} as seen")
+                print(f"Source node {message.source} marked Message {message.id} as seen")
                 
                 # Add message to source node's pending list
                 initial_path = [message.source]
@@ -266,7 +258,7 @@ class ComparisonPhaseManager:
         newly_completed = []
         for message in self.messages.values():
             if message.is_completed and not hasattr(message, '_stats_counted'):
-                message._stats_counted = True  # Mark as counted
+                message._stats_counted = True
                 newly_completed.append(message)
                 
                 # Use the message's own status
@@ -376,7 +368,7 @@ class ComparisonPhaseManager:
             # DON'T reset knowledge trees - they're from learning phase!
                 
         # Reset enhanced statistics
-        algorithm_name = self.stats.get('algorithm_name', 'unknown')  # Preserve algorithm name
+        algorithm_name = self.stats.get('algorithm_name', 'unknown')
         self.stats = {
             'messages_completed': 0,
             'messages_reached_target': 0,
@@ -395,7 +387,7 @@ class ComparisonPhaseManager:
             'collisions_frame_events': [0] * self.total_frames,
             
             # Algorithm-specific statistics
-            'algorithm_name': algorithm_name,  # Keep the algorithm name
+            'algorithm_name': algorithm_name,
             'network_efficiency': 0.0,
             'average_path_length': 0.0,
             'resource_efficiency': 0.0,
@@ -438,7 +430,7 @@ class ComparisonPhaseManager:
             
             message_details.append({
                 'id': msg_id,
-                'route': f"{message.source}→{message.target}",
+                'route': f"{message.source}->{message.target}",
                 'success': success,
                 'final_path': final_path,
                 'all_paths': message.paths.copy(),
@@ -494,7 +486,7 @@ class ComparisonPhaseManager:
         print(f"Expired: {expired} ({expired/total_messages*100:.1f}%)")
         print(f"Total Collisions: {self.stats['total_collisions']}")
         
-        # Enhanced network statistics
+        # Network statistics
         print(f"\nNetwork Transmission Statistics:")
         print(f"  Total Transmissions Sent: {self.stats['total_transmissions_sent']}")
         print(f"  Total Transmissions Received: {self.stats['total_transmissions_received']}")
@@ -515,10 +507,10 @@ class ComparisonPhaseManager:
         print(f"\nMessage Path Analysis:")
         for msg_id, message in self.messages.items():
             details = self.stats['message_details'].get(msg_id, {})
-            print(f"Message {msg_id} ({message.source}→{message.target}):")
+            print(f"Message {msg_id} ({message.source}->{message.target}):")
             print(f"  Status: {message.get_status()}")
             print(f"  Total paths discovered: {len(message.paths)}")
-            print(f"  Transmissions for this message: {details.get('total_transmissions_for_this_message', 0)}")
+            print(f"  Transmissions: {details.get('total_transmissions_for_this_message', 0)}")
             print(f"  Successful receptions: {details.get('total_receptions_for_this_message', 0)}")
             
             if message.paths:
