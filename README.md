@@ -1,10 +1,10 @@
 # Network Flooding Simulator
 
-A Python-based network simulation implementing smart flooding and adaptive routing table algorithms.
+A Python-based network simulation implementing and comparing flooding algorithms with knowledge tree-based intelligent routing for Meshtastic network message propagation.
 
 ## Project Objective
 
-This project simulates and compares two network routing algorithms: an enhanced flooding algorithm and an adaptive routing tables system. The simulation demonstrates how nodes can intelligently forward messages while learning optimal network paths through message observation.
+This project simulates Meshtastic-style mesh network communication, implementing and comparing two network routing algorithms: a pure flooding algorithm and an intelligent tree-based routing system. The simulation demonstrates how nodes can learn network topology through message observation and make smart routing decisions using knowledge trees to optimize message propagation in mesh networks.
 
 ## Installation and Setup
 
@@ -31,63 +31,136 @@ python main.py
 ### Simulation Setup
 1. Run `python main.py`
 2. Enter simulation parameters:
-   - Number of nodes in the network
-   - Number of messages to generate
+   - Network size (10, 50, or 100 nodes - optimized layouts)
+   - Number of test messages for algorithm comparison
    - Total simulation frames
-3. The system randomly generates messages with random source and destination nodes
-4. Each message starts at a random frame within the simulation period
-5. Use SPACE to advance frame by frame through the simulation
+3. Choose from the main menu:
+   - **Learning Phase**: Build knowledge trees through message passing
+   - **Flooding Algorithm**: Pure flooding approach
+   - **Tree-Based Algorithm**: Smart routing using learned knowledge
+   - **Algorithm Comparison**: Run both algorithms and compare results
 
 ### Controls
-- **SPACE**: Next frame
-- **Q**: Quit
-- **R**: Reset simulation
+- **SPACE**: Advance to next frame
+- **Q**: Skip learning phase or quit simulation
+- **R**: Reset comparison phase
 
 ## Algorithms Implemented
 
-### Enhanced Smart Flooding
-An improved flooding algorithm where nodes avoid forwarding duplicate messages. When a node receives a message, it checks if it has seen this message before. If not, it forwards the message to all neighbors except the sender. This reduces network congestion while maintaining delivery reliability.
+### 1. Pure Flooding Algorithm
+A straightforward flooding approach where:
+- Every node forwards messages to ALL neighbors
+- Nodes stop forwarding if they are the target node or have already seen the message
+- Messages continue propagating until hop limit is exhausted
+- Simple but generates high network traffic
+- Guaranteed delivery if path exists within hop limit
 
-### Adaptive Routing Tables
-Our enhanced routing system where nodes learn network paths from observed messages. Key improvements include:
+### 2. Tree-Based Intelligent Routing
+An advanced routing system using knowledge trees with smart forwarding decisions:
+- **Knowledge Tree Analysis**: Before forwarding, nodes check their learned knowledge trees
+- **Subtree Optimization**: If the source and target nodes are both located in the same subtree, the node does not forward the message
+- **Smart Path Detection**: This indicates a shorter direct path exists between source and target that doesn't require routing through the current node
+- **Efficient Forwarding**: Only forwards when the node can provide a useful path, reducing unnecessary network traffic
+- **Adaptive Fallback**: When subtree analysis is inconclusive or knowledge is insufficient, falls back to flooding behavior
 
-- **Bidirectional Learning**: When a message follows path A→B→C→D, each node learns routes to all previous nodes in the path, not just the source
-- **Multi-path Routing**: Nodes send messages via all known good routes within hop limit for redundancy
-- **Smart Fallback**: If no routes are known, nodes fall back to flooding behavior
+## Two-Phase Simulation Design
+
+### Phase 1: Learning Phase
+- Predetermined message pairs sent systematically
+- Each node builds knowledge trees from observed message paths
+- Messages spaced based on network size (every 4/8/12 frames for 10/50/100 nodes)
+- Dynamic hop limits: 4/8/12 hops for 10/50/100 node networks
+
+### Phase 2: Algorithm Testing
+- Random test messages with random source/destination pairs
+- Compare flooding vs tree-based algorithm performance
+- Comprehensive statistics and analysis
+- Visual representation of algorithm differences
+
+## Network Features
+
+### Optimized Graph Layouts
+- **10-node network**: Compact cluster layout
+- **50-node network**: Medium complexity with balanced connectivity
+- **100-node network**: Well-distributed layout with normal connectivity
+- Same layout every run for reproducible experiments
+
+### Visual Representation
+- **Color Coding**:
+  - Green: Source nodes
+  - Red: Target nodes
+  - Pink: Collision occurred
+  - Orange: Currently sending
+  - Light Blue: Normal nodes
+- **Message Flow**: Colored arrows showing active transmissions
+- **Real-time Statistics**: Message status and completion tracking
+
+### Dynamic Parameters
+- **Hop Limits**: Automatically adjusted based on network size
+- **Message Timing**: Intelligent spacing to prevent overlap
+- **Frame Allocation**: Sufficient time for message completion
 
 ## Project Structure
 
 ### Core Classes
 
-**Node Class (node.py)**
-Represents individual network nodes with routing capabilities. Manages routing tables, processes incoming messages, makes forwarding decisions, and learns routes from observed message paths.
+**Simulator (simulator.py)**
+Main orchestrator managing all simulation phases, user interface, and algorithm comparison.
 
-**Network Class (network.py)**
-Handles network topology creation, node positioning, and connection management. Creates random network layouts and manages communication between neighboring nodes.
+**LearningPhaseManager (LearningPhaseManager.py)**
+Handles the learning phase where nodes build knowledge trees through systematic message passing.
 
-**Message Class (message.py)**
-Manages message lifecycle, tracks complete paths taken by messages, enforces hop limits, and monitors delivery status and success/failure reasons.
+**ComparisonPhaseManager (ComparisonPhaseManager.py)**
+Manages algorithm testing phase with random messages and detailed statistics tracking.
 
-**Simulator Class (simulator.py)**
-Controls simulation execution, manages frame-by-frame progression, handles collision detection when multiple nodes transmit simultaneously, and provides real-time visualization.
+**Node (node.py)**
+Represents network nodes with knowledge tree building and intelligent routing capabilities.
 
-**Main Program (main.py)**
-Entry point that handles user input for simulation parameters and launches the simulation interface.
+**Message (message.py)**
+Manages message lifecycle with dynamic hop limits and path tracking.
 
-## Simulation Features
+**MessageProcessor (MessageProcessor.py)**
+Handles message transmission, collision detection, and reception processing for both phases.
 
-- Random message generation with random source/destination pairs
-- Random start times for messages within simulation period
-- Visual representation of network topology and message flow
-- Real-time statistics on message delivery and routing table development
-- Collision detection and handling
-- Hop limit management to prevent infinite loops
+**DisplayManager (DisplayManager.py)**
+Provides real-time visual representation of network state and message flow.
+
+**Network (network.py)**
+Creates and manages network topology with optimized layouts for different sizes.
+
+## Statistics and Analysis
+
+The simulator provides comprehensive analysis including:
+- Message success rates for each algorithm
+- Network efficiency metrics
+- Resource utilization comparison
+- Collision statistics
+- Path length analysis
+- Individual message performance breakdown
+- Overall algorithm winner determination
+
+## Key Innovations
+
+### Knowledge Tree Learning
+- Nodes learn complete path information from every observed message
+- Tree structure represents how to reach any known destination
+- Multiple entries per destination for redundancy
+
+### Intelligent Routing Decisions
+- Subtree analysis to avoid unnecessary forwarding
+- Smart fallback to flooding when knowledge is incomplete
+- Dynamic adaptation based on learned network topology
+
+### Comprehensive Comparison
+- Side-by-side algorithm performance analysis
+- Detailed statistics with clear winner determination
+- Visual representation of algorithm differences
 
 ## Contributors
 
--Hagit Dahan 315158568
--Talya Perets 322353780
--Ido Avraham 208699181
+- Hagit Dahan 315158568
+- Talya Perets 322353780
+- Ido Avraham 208699181
 
 ## Repository
 
