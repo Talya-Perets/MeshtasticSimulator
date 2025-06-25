@@ -52,24 +52,40 @@ class ComparisonPhaseManager:
         """Generate RANDOM comparison messages for algorithm testing"""
         self.messages.clear()
         node_ids = list(self.network.nodes.keys())
+        network_size = len(node_ids)  # Get network size for dynamic hop limits
         
         print(f"\nComparison phase: {num_messages} random test messages")
         print("Messages will be different each run:")
+        
+        # Determine hop limit based on network size
+        hop_limits = {
+            10: 4,   # Small network - 4 hops is enough
+            50: 8,   # Medium network - need more hops  
+            100: 12  # Large network - need even more hops
+        }
+        hop_limit = hop_limits.get(network_size, 6)  # Default to 6 if size not found
+        
+        # Ensure total_frames is sufficient for the hop limit
+        min_required_frames = hop_limit + 12  # hop_limit + generous buffer
+        if self.total_frames < min_required_frames:
+            print(f"WARNING: total_frames ({self.total_frames}) is too small for hop_limit ({hop_limit})")
+            print(f"Increasing total_frames to {min_required_frames}")
+            self.total_frames = min_required_frames
+        
+        print(f"Using hop limit: {hop_limit} (network size: {network_size})")
+        print(f"Total frames: {self.total_frames} (ensures {self.total_frames - hop_limit} frames minimum completion time)")
         
         for msg_id in range(num_messages):
             # Choose random source and target (different nodes)
             source = random.choice(node_ids)
             target = random.choice([n for n in node_ids if n != source])
             
-            # Random start frame throughout simulation
-            start_frame = random.randint(1, self.total_frames - 4)
-            
-            # Create message 
-            message = Message(msg_id, source, target, self.total_frames)
-            message.start_frame = start_frame
+            # Create message with network size for dynamic hop limits
+            message = Message(msg_id, source, target, self.total_frames, network_size)
+            # Message class will automatically calculate appropriate start_frame
             
             self.messages[msg_id] = message
-            print(f"  Test Msg {msg_id}: {source} -> {target} (Frame {start_frame})")
+            print(f"  Test Msg {msg_id}: {source} -> {target} (Frame {message.start_frame}, Hops: {message.hop_limit})")
         
         print("Messages are random - each run tests different scenarios")
         

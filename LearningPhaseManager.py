@@ -19,25 +19,37 @@ class LearningPhaseManager:
         self.learning_messages.clear()
         learning_pairs = self._get_learning_pairs(num_nodes)
         
-        print(f"\nLearning phase: {len(learning_pairs)} predetermined message pairs")
-        print("Messages will be sent every 4 frames:")
-        
         msg_id = 0
         current_frame = 1
-        message_interval = 4  # New message every 4 frames
+        
+        # Determine hop limit based on network size
+        hop_limits = {
+            10: 4,   # Small network - 4 hops is enough
+            50: 8,   # Medium network - need more hops
+            100: 12  # Large network - need even more hops
+        }
+        hop_limit = hop_limits.get(num_nodes, 6)  # Default to 6 if size not found
+        
+        # Message interval should be based on hop limit to allow messages to complete
+        message_interval = hop_limit  # Give each message enough frames to complete
+        
+        print(f"\nLearning phase: {len(learning_pairs)} predetermined message pairs")
+        print(f"Using hop limit: {hop_limit} (network size: {num_nodes})")
+        print(f"Message interval: {message_interval} frames (based on hop limit)")
+        print("Messages will be sent with proper spacing:")
         
         for source, target in learning_pairs:
-            message = Message(msg_id, source, target, current_frame + 20)
+            message = Message(msg_id, source, target, current_frame + (hop_limit * 3))  # Give extra time
             message.start_frame = current_frame
-            message.hop_limit = 4
+            message.hop_limit = hop_limit  # Use dynamic hop limit
             
             self.learning_messages[msg_id] = message
-            print(f"  Learning Msg {msg_id}: {source} -> {target} (Frame {current_frame})")
+            print(f"  Learning Msg {msg_id}: {source} -> {target} (Frame {current_frame}, Hops: {hop_limit})")
             
             msg_id += 1
-            current_frame += message_interval
+            current_frame += message_interval  # THIS IS THE KEY FIX - Use hop-limit based interval
         
-        self.learning_frames = current_frame - 1
+        self.learning_frames = current_frame - 1 + (hop_limit * 2)  # Add buffer for last messages
         print(f"Learning phase will take approximately {self.learning_frames} frames")
         return self.learning_frames
     
@@ -172,7 +184,7 @@ class LearningPhaseManager:
                 self.network.nodes[message.source].pending_messages.append((message, initial_path))
                 
                 started_messages.append(message.id)
-                print(f"Started Learning Message {message.id}: {message.source} -> {message.target}")
+                print(f"Started Learning Message {message.id}: {message.source} -> {message.target} (Hop limit: {message.hop_limit})")
         
         if started_messages:
             # Show status of all learning messages
@@ -188,10 +200,10 @@ class LearningPhaseManager:
                 status = f"COMPLETED ({message.get_status()})"
                 completed_count += 1
             elif message.is_active:
-                status = "ACTIVE"
+                status = f"ACTIVE (Hops: {message.hop_limit})"
                 active_count += 1
             else:
-                status = f"WAITING (starts frame {message.start_frame})"
+                status = f"WAITING (starts frame {message.start_frame}, Hops: {message.hop_limit})"
                 waiting_count += 1
             
             print(f"  Learning Msg {msg_id}: {message.source}->{message.target} - {status}")

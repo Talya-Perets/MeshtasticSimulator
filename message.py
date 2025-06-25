@@ -6,15 +6,29 @@ class Message:
     Each message has: ID, source, destination, hop limit, and start frame
     """
     
-    def __init__(self, message_id, source_node, target_node, total_frames):
+    def __init__(self, message_id, source_node, target_node, total_frames, network_size=None):
         self.id = message_id
         self.source = source_node  # Source node ID
         self.target = target_node  # Target node ID
-        self.hop_limit = 4
         
-        # Better random start frame distribution
-        # Start between frame 1 and 2/3 of total frames (give more time to complete)
-        self.start_frame = random.randint(1, total_frames-4)
+        # Dynamic hop limit based on network size
+        if network_size:
+            hop_limits = {
+                10: 4,   # Small network - 4 hops is enough
+                50: 8,   # Medium network - need more hops
+                100: 12  # Large network - need even more hops
+            }
+            self.hop_limit = hop_limits.get(network_size, 6)  # Default to 6 if size not found
+        else:
+            self.hop_limit = 4  # Default for backward compatibility
+        
+        # Calculate minimum required frames for completion
+        min_frames_needed = self.hop_limit + 4  # hop_limit + buffer
+        
+        # For comparison messages, ensure enough time to complete
+        # Start between frame 1 and (total_frames - min_frames_needed)
+        max_start_frame = max(1, total_frames - min_frames_needed)
+        self.start_frame = random.randint(1, max_start_frame)
         
         # Current hop count (starts at hop_limit)
         self.current_hops = self.hop_limit
