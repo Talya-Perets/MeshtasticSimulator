@@ -1,5 +1,5 @@
 import random
-from message import Message
+from simulator.message import Message
 
 class ComparisonPhaseManager:
     """

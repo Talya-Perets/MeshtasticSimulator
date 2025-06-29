@@ -1,9 +1,9 @@
 import random
-from network import Network
-from LearningPhaseManager import LearningPhaseManager
-from ComparisonPhaseManager import ComparisonPhaseManager
-from DisplayManager import DisplayManager
-from MessageProcessor import MessageProcessor
+from simulator.network import Network
+from simulator.learning_phase_manager import LearningPhaseManager
+from simulator.comparison_phase_manager import ComparisonPhaseManager
+from simulator.display_manager import DisplayManager
+from simulator.message_processor import MessageProcessor
 
 class Simulator:
     """
@@ -491,46 +491,46 @@ class Simulator:
         
         self._show_message_details_comparison(flooding, tree)
         
-        # === OVERALL WINNER CALCULATION ===
-        print(f"\nOVERALL WINNER ANALYSIS:")
-        print("-" * 80)
+        # # === OVERALL WINNER CALCULATION ===
+        # print(f"\nOVERALL WINNER ANALYSIS:")
+        # print("-" * 80)
         
-        # Count wins in each category
-        winners = [
-            msg_winner,           # Message success rate
-            net_eff_winner,       # Network efficiency  
-            res_eff_winner,       # Resource efficiency
-            collision_winner,     # Collisions (fewer is better)
-            time_winner,          # Completion time (fewer is better)
-            path_winner           # Path length (shorter is better)
-        ]
+        # # Count wins in each category
+        # winners = [
+        #     msg_winner,           # Message success rate
+        #     net_eff_winner,       # Network efficiency  
+        #     res_eff_winner,       # Resource efficiency
+        #     collision_winner,     # Collisions (fewer is better)
+        #     time_winner,          # Completion time (fewer is better)
+        #     path_winner           # Path length (shorter is better)
+        # ]
         
-        tree_wins = winners.count("Tree-Based")
-        flood_wins = winners.count("Flooding")
-        ties = winners.count("Tie")
+        # tree_wins = winners.count("Tree-Based")
+        # flood_wins = winners.count("Flooding")
+        # ties = winners.count("Tie")
         
-        print(f"Tree-Based Algorithm Wins: {tree_wins}")
-        print(f"Flooding Algorithm Wins: {flood_wins}")
-        print(f"Ties: {ties}")
-        print()
+        # print(f"Tree-Based Algorithm Wins: {tree_wins}")
+        # print(f"Flooding Algorithm Wins: {flood_wins}")
+        # print(f"Ties: {ties}")
+        # print()
         
-        if tree_wins > flood_wins:
-            print("TREE-BASED ALGORITHM is the overall winner!")
-            print("Better performance using learned knowledge trees")
-            print("Smart routing decisions lead to more efficient network usage")
-        elif flood_wins > tree_wins:
-            print("FLOODING ALGORITHM is the overall winner!")
-            print("Simple flooding proves more effective for this scenario")
-            print("Pure flooding approach handles network conditions better")
-        else:
-            print("IT'S A TIE!")
-            print("Both algorithms performed similarly in this scenario")
-            print("Different network conditions might favor one over the other")
+        # if tree_wins > flood_wins:
+        #     print("TREE-BASED ALGORITHM is the overall winner!")
+        #     print("Better performance using learned knowledge trees")
+        #     print("Smart routing decisions lead to more efficient network usage")
+        # elif flood_wins > tree_wins:
+        #     print("FLOODING ALGORITHM is the overall winner!")
+        #     print("Simple flooding proves more effective for this scenario")
+        #     print("Pure flooding approach handles network conditions better")
+        # else:
+        #     print("IT'S A TIE!")
+        #     print("Both algorithms performed similarly in this scenario")
+        #     print("Different network conditions might favor one over the other")
         
-        # === INSIGHTS AND RECOMMENDATIONS ===
-        print(f"\nINSIGHTS AND RECOMMENDATIONS:")
-        print("-" * 80)
-        self._provide_algorithm_insights(flooding, tree)
+        # # === INSIGHTS AND RECOMMENDATIONS ===
+        # print(f"\nINSIGHTS AND RECOMMENDATIONS:")
+        # print("-" * 80)
+        # self._provide_algorithm_insights(flooding, tree)
 
     def _show_message_details_comparison(self, flooding_stats, tree_stats):
         """Show detailed comparison of individual message performance"""

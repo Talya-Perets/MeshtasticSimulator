@@ -27,7 +27,7 @@ Author: Network Simulation Project
 """
 
 # Import the refactored simulator class
-from simulator import Simulator
+from simulator.simulator import Simulator
 import sys
 
 def main():

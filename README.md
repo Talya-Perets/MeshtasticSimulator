@@ -4,7 +4,9 @@ A Python-based network simulation implementing and comparing flooding algorithms
 
 ## Project Objective
 
-This project simulates Meshtastic-style mesh network communication, implementing and comparing two network routing algorithms: a pure flooding algorithm and an intelligent tree-based routing system. The simulation demonstrates how nodes can learn network topology through message observation and make smart routing decisions using knowledge trees to optimize message propagation in mesh networks.
+This project simulates Meshtastic-style mesh network communication, implementing and comparing two network routing algorithms: 
+- **Pure flooding** - every node forwards to all neighbors.
+- **Tree-Based Routing** – nodes use learned paths for efficient routing. The simulation demonstrates how nodes can learn network topology through message observation and make smart routing decisions using knowledge trees to optimize message propagation in mesh networks.
 
 ## Installation and Setup
 
@@ -18,7 +20,7 @@ This project simulates Meshtastic-style mesh network communication, implementing
 ```bash
 git clone https://github.com/Talya-Perets/MeshtasticSimulator.git
 cd MeshtasticSimulator
-pip install matplotlib networkx numpy
+pip install -r requirements.txt
 ```
 
 ### Running the Program
@@ -38,7 +40,8 @@ python main.py
    - **Learning Phase**: Build knowledge trees through message passing
    - **Flooding Algorithm**: Pure flooding approach
    - **Tree-Based Algorithm**: Smart routing using learned knowledge
-   - **Algorithm Comparison**: Run both algorithms and compare results
+   - **Compare Both Algorithms**: Run both algorithms and compare results
+   - **Exit**
 
 ### Controls
 - **SPACE**: Advance to next frame
@@ -101,7 +104,23 @@ An advanced routing system using knowledge trees with smart forwarding decisions
 - **Frame Allocation**: Sufficient time for message completion
 
 ## Project Structure
+```bash
+   MeshtasticSimulator/
+   ├── main.py                   # Entry point
+   ├── requirements.txt          # Dependency list
+   ├── README.md                 # Project documentation
+   └── simulator/
+      ├── __init__.py
+      ├── simulator.py
+      ├── learning_phase_manager.py
+      ├── comparison_phase_manager.py
+      ├── message_processor.py
+      ├── display_manager.py
+      ├── network.py
+      ├── node.py
+      └── message.py
 
+```
 ### Core Classes
 
 **Simulator (simulator.py)**

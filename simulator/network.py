@@ -4,8 +4,8 @@ import random
 import numpy as np
 from collections import defaultdict
 
-from message import Message
-from node import Node
+from simulator.message import Message
+from simulator.node import Node
 
 class Network:
     """
